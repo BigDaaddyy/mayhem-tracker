@@ -25,6 +25,10 @@ const api = {
 
   getAugmentData: () => ipcRenderer.invoke("dragon:augments"),
 
+  getGameDataVersion: () => ipcRenderer.invoke("dragon:version"),
+
+  reloadGameData: () => ipcRenderer.invoke("dragon:reload"),
+
   getChampionItemStats: (championId: number) =>
     ipcRenderer.invoke("db:champion-item-stats", championId),
 
@@ -46,6 +50,15 @@ const api = {
     const handler = () => callback();
     ipcRenderer.on("lcu:games-updated", handler);
     return () => ipcRenderer.removeListener("lcu:games-updated", handler);
+  },
+
+  onGameDataUpdated: (
+    callback: (result: { version: string; champions: number; augments: number }) => void,
+  ) => {
+    const handler = (_event: any, result: { version: string; champions: number; augments: number }) =>
+      callback(result);
+    ipcRenderer.on("dragon:data-updated", handler);
+    return () => ipcRenderer.removeListener("dragon:data-updated", handler);
   },
 
   getSetting: (key: string) => ipcRenderer.invoke("settings:get", key),

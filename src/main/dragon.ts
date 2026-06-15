@@ -6,6 +6,22 @@ let augmentCache: Record<number, { name: string; desc: string; iconPath: string;
 
 let championReady: Promise<void> | null = null;
 let augmentReady: Promise<void> | null = null;
+let gameDataVersion = "";
+
+function parseAugmentName(aug: any, fallbackId: number): string {
+  const name = aug.name || aug.nameTRA || aug.simpleNameTRA;
+  if (typeof name === "string" && name.trim()) return name.trim();
+  return `Augment ${fallbackId}`;
+}
+
+function parseAugmentEntry(aug: any, id: number) {
+  return {
+    name: parseAugmentName(aug, id),
+    desc: aug.desc || aug.descriptionTRA || "",
+    iconPath: aug.augmentSmallIconPath || aug.iconSmall || aug.iconLarge || "",
+    rarity: aug.rarity || "",
+  };
+}
 
 function fetchJson(url: string): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -42,6 +58,7 @@ export function loadChampionData() {
     try {
       const versions = await fetchJson("https://ddragon.leagueoflegends.com/api/versions.json");
       const version = versions[0];
+      gameDataVersion = version;
 
       const data = await fetchJson(
         `https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion.json`,
@@ -71,24 +88,13 @@ export function loadAugmentData() {
       // cherry-augments.json is an array of augment objects
       if (Array.isArray(data)) {
         for (const aug of data) {
-          augmentCache[aug.id] = {
-            name: aug.name || aug.nameTRA || `Augment ${aug.id}`,
-            desc: aug.desc || aug.descriptionTRA || "",
-            iconPath: aug.augmentSmallIconPath || aug.iconSmall || aug.iconLarge || "",
-            rarity: aug.rarity || "",
-          };
+          augmentCache[aug.id] = parseAugmentEntry(aug, aug.id);
         }
       } else if (typeof data === "object") {
-        // Could be keyed by id
         for (const [id, aug] of Object.entries(data) as any[]) {
           const numId = parseInt(id);
           if (!isNaN(numId)) {
-            augmentCache[numId] = {
-              name: aug.name || aug.nameTRA || `Augment ${numId}`,
-              desc: aug.desc || aug.descriptionTRA || "",
-              iconPath: aug.augmentSmallIconPath || aug.iconSmall || aug.iconLarge || "",
-              rarity: aug.rarity || "",
-            };
+            augmentCache[numId] = parseAugmentEntry(aug, numId);
           }
         }
       }
@@ -115,4 +121,29 @@ export function getChampionData() {
 
 export function getAugmentDataCache() {
   return augmentCache;
+}
+
+export function getGameDataVersion() {
+  return gameDataVersion;
+}
+
+export async function reloadGameData(): Promise<{
+  version: string;
+  champions: number;
+  augments: number;
+}> {
+  championCache = {};
+  augmentCache = {};
+  championReady = null;
+  augmentReady = null;
+
+  loadChampionData();
+  loadAugmentData();
+  await Promise.all([waitForChampionData(), waitForAugmentData()]);
+
+  return {
+    version: gameDataVersion,
+    champions: Object.keys(championCache).length,
+    augments: Object.keys(augmentCache).length,
+  };
 }

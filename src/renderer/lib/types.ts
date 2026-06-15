@@ -214,8 +214,27 @@ export interface ElectronAPI {
   getLcuStatus: () => Promise<LcuStatus>;
   getChampionData: () => Promise<ChampionData>;
   getAugmentData: () => Promise<AugmentData>;
+  getGameDataVersion: () => Promise<string>;
+  reloadGameData: () => Promise<{ version: string; champions: number; augments: number }>;
   onStatusChanged: (callback: (status: LcuStatus) => void) => () => void;
   onGamesUpdated: (callback: () => void) => () => void;
+  onGameDataUpdated: (
+    callback: (result: { version: string; champions: number; augments: number }) => void,
+  ) => () => void;
+  getSetting: (key: string) => Promise<string | null>;
+  setSetting: (key: string, value: string) => Promise<void>;
+  exportData: () => Promise<{ success: boolean; path?: string }>;
+  importData: () => Promise<{ success: boolean; imported?: number }>;
+  repairPuuids: () => Promise<{ repairedGames: number; discoveredAccounts: number }>;
+  getVersion: () => Promise<string>;
+  checkForUpdate: () => Promise<{
+    hasUpdate: boolean;
+    latest?: string;
+    current?: string;
+    url?: string;
+    error?: string;
+  }>;
+  openUrl: (url: string) => Promise<void>;
 }
 
 declare global {

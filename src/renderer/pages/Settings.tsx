@@ -6,6 +6,17 @@ export default function Settings() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [repairStatus, setRepairStatus] = useState<string | null>(null);
+  const [gameDataStatus, setGameDataStatus] = useState<string | null>(null);
+  const [gameDataRefreshing, setGameDataRefreshing] = useState(false);
+  const [gameDataVersion, setGameDataVersion] = useState("");
+
+  useEffect(() => {
+    window.api.getGameDataVersion().then(setGameDataVersion);
+    const unsub = window.api.onGameDataUpdated((result) => {
+      setGameDataVersion(result.version);
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     window.api.getSetting("minimize_to_tray").then((val: string | null) => {
@@ -60,6 +71,22 @@ export default function Settings() {
     }
   }, []);
 
+  const handleRefreshGameData = useCallback(async () => {
+    setGameDataRefreshing(true);
+    setGameDataStatus(null);
+    try {
+      const result = await window.api.reloadGameData();
+      setGameDataVersion(result.version);
+      setGameDataStatus(
+        `Updated to patch ${result.version}: ${result.champions} champions, ${result.augments} augments`,
+      );
+    } catch (err: any) {
+      setGameDataStatus(`Error: ${err.message}`);
+    } finally {
+      setGameDataRefreshing(false);
+    }
+  }, []);
+
   if (loading) return null;
 
   return (
@@ -92,6 +119,30 @@ export default function Settings() {
               }`}
             />
           </button>
+        </div>
+      </div>
+
+      {/* Game Data */}
+      <div className="bg-lol-card rounded-xl border border-lol-border p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Game Data</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-lol-text-bright">Refresh champions, augments &amp; items</p>
+              <p className="text-xs text-lol-text mt-0.5">
+                Fetches the latest names and icons from Riot / CommunityDragon.
+                {gameDataVersion ? ` Current patch data: ${gameDataVersion}.` : ""}
+              </p>
+            </div>
+            <button
+              onClick={handleRefreshGameData}
+              disabled={gameDataRefreshing}
+              className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 disabled:opacity-50 transition-colors"
+            >
+              {gameDataRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+          {gameDataStatus && <p className="text-xs text-lol-text">{gameDataStatus}</p>}
         </div>
       </div>
 

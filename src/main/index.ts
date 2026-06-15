@@ -3,7 +3,7 @@ import path from "path";
 import { initDatabase, getSetting } from "./db";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { startPolling, stopPolling, getStatus, fetchNewGames } from "./lcu";
-import { loadChampionData, loadAugmentData } from "./dragon";
+import { loadChampionData, loadAugmentData, reloadGameData } from "./dragon";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -119,6 +119,22 @@ app.whenReady().then(async () => {
 
   createWindow();
   createTray();
+
+  // Refresh static game data daily (new augments, champions, item icons)
+  const GAME_DATA_REFRESH_MS = 24 * 60 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      const result = await reloadGameData();
+      console.log(
+        `Refreshed game data: v${result.version}, ${result.champions} champions, ${result.augments} augments`,
+      );
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("dragon:data-updated", result);
+      }
+    } catch (err) {
+      console.log("Scheduled game data refresh failed:", err);
+    }
+  }, GAME_DATA_REFRESH_MS);
 });
 
 app.on("before-quit", async (event) => {

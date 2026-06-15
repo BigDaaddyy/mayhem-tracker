@@ -25,8 +25,10 @@ const statusLabels = {
 export default function Sidebar() {
   const status = useLcuStatus();
   const [refreshing, setRefreshing] = useState(false);
+  const [dataRefreshing, setDataRefreshing] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [version, setVersion] = useState("");
+  const [gameDataVersion, setGameDataVersion] = useState("");
   const [update, setUpdate] = useState<{
     hasUpdate: boolean;
     latest?: string;
@@ -36,6 +38,11 @@ export default function Sidebar() {
   useEffect(() => {
     window.api.getVersion().then(setVersion);
     window.api.checkForUpdate().then(setUpdate);
+    window.api.getGameDataVersion().then(setGameDataVersion);
+    const unsub = window.api.onGameDataUpdated((result) => {
+      setGameDataVersion(result.version);
+    });
+    return unsub;
   }, []);
 
   useEffect(() => {
@@ -54,6 +61,20 @@ export default function Sidebar() {
       setLastResult(`Error: ${err.message}`);
     } finally {
       setRefreshing(false);
+    }
+  }, []);
+
+  const handleRefreshGameData = useCallback(async () => {
+    setDataRefreshing(true);
+    setLastResult(null);
+    try {
+      const result = await window.api.reloadGameData();
+      setGameDataVersion(result.version);
+      setLastResult(`Game data v${result.version} (${result.augments} augments)`);
+    } catch (err: any) {
+      setLastResult(`Data error: ${err.message}`);
+    } finally {
+      setDataRefreshing(false);
     }
   }, []);
 
@@ -103,14 +124,28 @@ export default function Sidebar() {
             <div className={`w-2 h-2 rounded-full ${statusColors[status]}`} />
             <span className="text-xs text-lol-text">{statusLabels[status]}</span>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="text-xs px-3 py-1 rounded bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 disabled:opacity-50 transition-colors"
-          >
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </button>
+          <div className="flex gap-1">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing || dataRefreshing}
+              title="Sync match history from League client"
+              className="text-xs px-2 py-1 rounded bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 disabled:opacity-50 transition-colors"
+            >
+              {refreshing ? "..." : "Sync"}
+            </button>
+            <button
+              onClick={handleRefreshGameData}
+              disabled={refreshing || dataRefreshing}
+              title="Update champions, augments & item icons"
+              className="text-xs px-2 py-1 rounded bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 disabled:opacity-50 transition-colors"
+            >
+              {dataRefreshing ? "..." : "Data"}
+            </button>
+          </div>
         </div>
+        {gameDataVersion && (
+          <span className="text-[10px] text-lol-text/50">Patch data: {gameDataVersion}</span>
+        )}
         <div className="flex items-center justify-between mt-1">
           <button
             onClick={() =>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ITEM_ICON_URL } from "../lib/constants";
+import { useGameDataVersion } from "../hooks/useChampions";
 
 interface ItemIconProps {
   itemId: number;
@@ -7,9 +8,10 @@ interface ItemIconProps {
 }
 
 export default function ItemIcon({ itemId, size = 24 }: ItemIconProps) {
+  const version = useGameDataVersion();
   const [failed, setFailed] = useState(false);
 
-  if (!itemId || itemId === 0 || failed) {
+  if (!itemId || itemId === 0 || failed || !version) {
     return (
       <div
         className="rounded bg-white/5 border border-white/10"
@@ -17,9 +19,11 @@ export default function ItemIcon({ itemId, size = 24 }: ItemIconProps) {
       />
     );
   }
+
   return (
     <img
-      src={ITEM_ICON_URL(itemId)}
+      key={`${version}-${itemId}`}
+      src={ITEM_ICON_URL(itemId, version)}
       alt=""
       width={size}
       height={size}

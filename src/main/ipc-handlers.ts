@@ -54,6 +54,18 @@ export function registerIpcHandlers(win: BrowserWindow) {
     return dragon.getAugmentDataCache();
   });
 
+  ipcMain.handle("dragon:version", () => {
+    return dragon.getGameDataVersion();
+  });
+
+  ipcMain.handle("dragon:reload", async () => {
+    const result = await dragon.reloadGameData();
+    if (!win.isDestroyed()) {
+      win.webContents.send("dragon:data-updated", result);
+    }
+    return result;
+  });
+
   ipcMain.handle("db:champion-item-stats", (_event, championId: number) => {
     return db.getChampionItemStats(championId);
   });
