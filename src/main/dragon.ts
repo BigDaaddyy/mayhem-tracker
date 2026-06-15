@@ -10,19 +10,47 @@ let championReady: Promise<void> | null = null;
 let augmentReady: Promise<void> | null = null;
 let gameDataVersion = "";
 
-function parseAugmentName(aug: any, fallbackId: number): string {
-  const name = aug.name || aug.nameTRA || aug.simpleNameTRA;
-  if (typeof name === "string" && name.trim()) return name.trim();
-  return `Augment ${fallbackId}`;
+function getLanguage(): "zh" | "en" {
+  const lang = getSetting("language");
+  return lang === "en" ? "en" : "zh";
 }
 
-function parseAugmentEntry(aug: any, id: number) {
+function parseAugmentName(aug: any, fallbackId: number, locale: "zh" | "en"): string {
+  const name = aug.name || aug.nameTRA || aug.simpleNameTRA;
+  if (typeof name === "string" && name.trim()) return name.trim();
+  return locale === "zh" ? `强化 ${fallbackId}` : `Augment ${fallbackId}`;
+}
+
+function parseAugmentEntry(aug: any, id: number, locale: "zh" | "en") {
   return {
-    name: parseAugmentName(aug, id),
+    name: parseAugmentName(aug, id, locale),
     desc: aug.desc || aug.descriptionTRA || "",
     iconPath: aug.augmentSmallIconPath || aug.iconSmall || aug.iconLarge || "",
     rarity: aug.rarity || "",
   };
+}
+
+const AUGMENT_DATA_BASE =
+  "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global";
+
+function forEachAugment(data: any, fn: (id: number, aug: any) => void) {
+  if (Array.isArray(data)) {
+    for (const aug of data) {
+      fn(aug.id, aug);
+    }
+  } else if (typeof data === "object" && data !== null) {
+    for (const [id, aug] of Object.entries(data)) {
+      const numId = parseInt(id);
+      if (!isNaN(numId)) fn(numId, aug);
+    }
+  }
+}
+
+function populateAugmentCache(data: any, locale: "zh" | "en", merge = false) {
+  forEachAugment(data, (id, aug) => {
+    if (merge && augmentCache[id]) return;
+    augmentCache[id] = parseAugmentEntry(aug, id, locale);
+  });
 }
 
 function fetchJson(url: string): Promise<any> {
@@ -88,26 +116,23 @@ export function loadChampionData() {
 export function loadAugmentData() {
   augmentReady = (async () => {
     try {
-      const data = await fetchJson(
-        "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json",
-      );
+      const locale = getLanguage();
+      const primaryRegion = locale === "zh" ? "zh_cn" : "default";
+
       augmentCache = {};
 
-      // cherry-augments.json is an array of augment objects
-      if (Array.isArray(data)) {
-        for (const aug of data) {
-          augmentCache[aug.id] = parseAugmentEntry(aug, aug.id);
-        }
-      } else if (typeof data === "object") {
-        for (const [id, aug] of Object.entries(data) as any[]) {
-          const numId = parseInt(id);
-          if (!isNaN(numId)) {
-            augmentCache[numId] = parseAugmentEntry(aug, numId);
-          }
-        }
+      const primary = await fetchJson(`${AUGMENT_DATA_BASE}/${primaryRegion}/v1/cherry-augments.json`);
+      populateAugmentCache(primary, locale);
+
+      // zh_cn may lag behind default — fill missing augments from English data
+      if (locale === "zh") {
+        const fallback = await fetchJson(`${AUGMENT_DATA_BASE}/default/v1/cherry-augments.json`);
+        populateAugmentCache(fallback, "en", true);
       }
 
-      console.log(`Loaded ${Object.keys(augmentCache).length} augments from CommunityDragon`);
+      console.log(
+        `Loaded ${Object.keys(augmentCache).length} augments from CommunityDragon (${primaryRegion})`,
+      );
     } catch (err) {
       console.error("Failed to load augment data:", err);
     }
