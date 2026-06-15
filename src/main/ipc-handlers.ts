@@ -104,7 +104,7 @@ export function registerIpcHandlers(win: BrowserWindow) {
   ipcMain.handle("app:check-update", async () => {
     try {
       const res = await fetch(
-        "https://api.github.com/repos/Yhprum/mayhem-tracker/releases/latest",
+        "https://api.github.com/repos/BigDaaddyy/mayhem-tracker/releases/latest",
         { headers: { "User-Agent": "mayhem-tracker" } },
       );
       if (!res.ok) return { hasUpdate: false, error: "No releases found" };
