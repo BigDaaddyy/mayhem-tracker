@@ -110,31 +110,31 @@ function createTray() {
 }
 
 app.whenReady().then(async () => {
-  // Initialize database first
   initDatabase();
 
-  // Load assets in background
-  loadChampionData();
-  loadAugmentData();
+  // Refresh game data on every launch (augments, champions, item icons)
+  const refreshPromise = reloadGameData().catch((err) => {
+    console.error("Startup game data refresh failed:", err);
+    loadChampionData();
+    loadAugmentData();
+  });
 
   createWindow();
   createTray();
 
-  // Refresh static game data daily (new augments, champions, item icons)
-  const GAME_DATA_REFRESH_MS = 24 * 60 * 60 * 1000;
-  setInterval(async () => {
-    try {
-      const result = await reloadGameData();
+  try {
+    const result = await refreshPromise;
+    if (result) {
       console.log(
-        `Refreshed game data: v${result.version}, ${result.champions} champions, ${result.augments} augments`,
+        `Loaded game data: v${result.version}, ${result.champions} champions, ${result.augments} augments`,
       );
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("dragon:data-updated", result);
       }
-    } catch (err) {
-      console.log("Scheduled game data refresh failed:", err);
     }
-  }, GAME_DATA_REFRESH_MS);
+  } catch {
+    /* fallback loaders already started in catch above */
+  }
 });
 
 app.on("before-quit", async (event) => {
