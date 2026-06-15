@@ -9,9 +9,11 @@ import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
 import MultikillBadge from "../components/MultikillBadge";
 import StatCard from "../components/StatCard";
-import { formatDuration, formatTimeAgo, formatKDA, kdaRatio } from "../lib/format";
+import { formatDuration, formatKDA } from "../lib/format";
+import { useI18n } from "../hooks/useI18n";
 
 export default function MatchHistory() {
+  const { t } = useI18n();
   const { matches, total, loading, hasMore, loadMore } = useMatches();
   const champData = useChampionData();
   const { data: dashboard, refetch: refetchDashboard } = useIpc<DashboardData>(() =>
@@ -86,17 +88,38 @@ export default function MatchHistory() {
       {/* Stat Cards */}
       {dashboard && (
         <div className="grid grid-cols-4 gap-4">
-          <StatCard label="Total Games" value={dashboard.totalGames} />
-          <StatCard label="Win Rate" value={winRate} />
-          <StatCard label="Avg KDA" value={`${avgKills} / ${avgDeaths} / ${avgAssists}`} />
+          <StatCard label={t("matchHistory.totalGames")} value={dashboard.totalGames} />
+          <StatCard label={t("matchHistory.winRate")} value={winRate} />
+          <StatCard
+            label={t("matchHistory.avgKda")}
+            value={`${avgKills} / ${avgDeaths} / ${avgAssists}`}
+          />
           <div className="bg-lol-card rounded-xl border border-lol-border p-4">
-            <div className="text-xs text-lol-text uppercase tracking-wider mb-1">Multikills</div>
+            <div className="text-xs text-lol-text uppercase tracking-wider mb-1">
+              {t("matchHistory.multikills")}
+            </div>
             <div className="grid grid-cols-4 gap-1">
               {[
-                { label: "D", value: dashboard.multikills.doubles, color: "text-sky-400" },
-                { label: "T", value: dashboard.multikills.triples, color: "text-amber-400" },
-                { label: "Q", value: dashboard.multikills.quadras, color: "text-purple-400" },
-                { label: "P", value: dashboard.multikills.pentas, color: "text-red-400" },
+                {
+                  label: t("matchHistory.multikillShort.d"),
+                  value: dashboard.multikills.doubles,
+                  color: "text-sky-400",
+                },
+                {
+                  label: t("matchHistory.multikillShort.t"),
+                  value: dashboard.multikills.triples,
+                  color: "text-amber-400",
+                },
+                {
+                  label: t("matchHistory.multikillShort.q"),
+                  value: dashboard.multikills.quadras,
+                  color: "text-purple-400",
+                },
+                {
+                  label: t("matchHistory.multikillShort.p"),
+                  value: dashboard.multikills.pentas,
+                  color: "text-red-400",
+                },
               ].map(({ label, value, color }) => (
                 <div key={label} className="text-center">
                   <div className={`text-lg font-bold ${color}`}>{value}</div>
@@ -109,13 +132,13 @@ export default function MatchHistory() {
       )}
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Match History</h1>
-        <span className="text-sm text-lol-text">{total} games</span>
+        <h1 className="text-xl font-bold text-lol-text-bright">{t("matchHistory.title")}</h1>
+        <span className="text-sm text-lol-text">{t("matchHistory.gamesCount", { count: total })}</span>
       </div>
 
       {matches.length === 0 && !loading && (
         <div className="bg-lol-card rounded-xl border border-lol-border p-8 text-center text-lol-text">
-          No ARAM Mayhem games found. Connect to the League client and click Refresh.
+          {t("matchHistory.empty")}
         </div>
       )}
 
@@ -136,7 +159,7 @@ export default function MatchHistory() {
 
       {hasMore && <div ref={sentinelRef} className="h-1" />}
       {loading && matches.length > 0 && (
-        <div className="text-center py-3 text-sm text-lol-text">Loading...</div>
+        <div className="text-center py-3 text-sm text-lol-text">{t("loading")}</div>
       )}
     </div>
   );
@@ -202,6 +225,7 @@ function GameRow({
   puuids,
   onToggle,
 }: GameRowProps) {
+  const { t, formatTimeAgo, kdaRatio } = useI18n();
   const isRemake = !!match.is_remake;
   const isWin = !!match.win;
   const kda = kdaRatio(match.kills, match.deaths, match.assists);
@@ -222,12 +246,12 @@ function GameRow({
         <div
           className={`text-xs font-bold shrink-0 ${isRemake ? "text-gray-500 w-8" : isWin ? "text-lol-win w-8" : "text-lol-loss w-8"}`}
         >
-          {isRemake ? "RMK" : isWin ? "WIN" : "LOSS"}
+          {isRemake ? t("matchHistory.remake") : isWin ? t("matchHistory.win") : t("matchHistory.loss")}
         </div>
         <ChampionIcon championId={match.champion_id} size={36} />
         <div className="w-24 shrink-0">
           <div className="text-sm text-lol-text-bright truncate">
-            {getChampionName(champData, match.champion_id)}
+            {getChampionName(champData, match.champion_id, t("championFallback", { id: match.champion_id }))}
           </div>
         </div>
         <div className="w-24 shrink-0">
@@ -235,9 +259,9 @@ function GameRow({
             {formatKDA(match.kills, match.deaths, match.assists)}
           </div>
           <div
-            className={`text-xs ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
+            className={`text-xs ${parseFloat(kda) >= 3 || match.deaths === 0 ? "text-lol-gold" : "text-lol-text"}`}
           >
-            {kda} KDA
+            {kda} {t("matchHistory.kda")}
           </div>
         </div>
 
@@ -247,19 +271,19 @@ function GameRow({
             value={match.total_damage_dealt}
             max={match.game_max_dmg}
             color="bg-red-500/80"
-            label="DMG"
+            label={t("matchHistory.dmg")}
           />
           <StatBar
             value={match.total_damage_taken}
             max={match.game_max_taken}
             color="bg-sky-500/80"
-            label="TKN"
+            label={t("matchHistory.taken")}
           />
           <StatBar
             value={match.total_heal}
             max={match.game_max_heal}
             color="bg-emerald-500/80"
-            label="HEL"
+            label={t("matchHistory.heal")}
           />
         </div>
 
@@ -294,7 +318,7 @@ function GameRow({
       {expanded && (
         <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border p-3">
           {detailLoading ? (
-            <div className="text-sm text-lol-text text-center py-4">Loading...</div>
+            <div className="text-sm text-lol-text text-center py-4">{t("loading")}</div>
           ) : detail ? (
             <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
           ) : null}
@@ -317,6 +341,7 @@ function MatchScoreboard({
   champData: any;
   puuids: string[] | null;
 }) {
+  const { t } = useI18n();
   const participants = useMemo(
     () => (detail.raw ? parseParticipants(detail.raw, puuids) : []),
     [detail, puuids],
@@ -339,7 +364,7 @@ function MatchScoreboard({
 
   if (participants.length === 0) {
     return (
-      <div className="text-sm text-lol-text text-center py-4">Full game data not available.</div>
+      <div className="text-sm text-lol-text text-center py-4">{t("matchHistory.noGameData")}</div>
     );
   }
 
@@ -369,6 +394,7 @@ function TeamScoreboard({
   maxStats: { dmg: number; taken: number; gold: number; heal: number };
   champData: any;
 }) {
+  const { t } = useI18n();
   const isWin = players[0]?.win ?? false;
 
   return (
@@ -378,7 +404,8 @@ function TeamScoreboard({
         className={`px-3 py-1.5 border-b border-lol-border ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
       >
         <span className={`text-xs font-bold ${isWin ? "text-lol-win" : "text-lol-loss"}`}>
-          Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
+          {t("matchHistory.team", { team: teamId === 100 ? "1" : "2" })} —{" "}
+          {isWin ? t("matchHistory.victory") : t("matchHistory.defeat")}
         </span>
       </div>
 
@@ -387,14 +414,14 @@ function TeamScoreboard({
         className={`px-3 py-1 border-b border-lol-border/50 grid ${GRID_COLS} gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
       >
         <span></span>
-        <span>Player</span>
-        <span className="text-center">KDA</span>
-        <span className="text-center">Damage</span>
-        <span className="text-center">Taken</span>
-        <span className="text-right">Gold</span>
-        <span className="text-right">Heal</span>
-        <span>Items</span>
-        <span>Augments</span>
+        <span>{t("matchHistory.player")}</span>
+        <span className="text-center">{t("matchHistory.kda")}</span>
+        <span className="text-center">{t("matchHistory.damage")}</span>
+        <span className="text-center">{t("matchHistory.taken")}</span>
+        <span className="text-right">{t("matchHistory.gold")}</span>
+        <span className="text-right">{t("matchHistory.heal")}</span>
+        <span>{t("matchHistory.items")}</span>
+        <span>{t("matchHistory.augments")}</span>
       </div>
 
       {/* Player rows */}
@@ -426,6 +453,7 @@ function PlayerRow({
   maxStats: { dmg: number; taken: number; gold: number; heal: number };
   champData: any;
 }) {
+  const { t, kdaRatio } = useI18n();
   const kda = kdaRatio(p.kills, p.deaths, p.assists);
 
   return (
@@ -445,7 +473,7 @@ function PlayerRow({
           {p.summonerName}
         </div>
         <div className="text-[10px] text-lol-text truncate">
-          {getChampionName(champData, p.championId)}
+          {getChampionName(champData, p.championId, t("championFallback", { id: p.championId }))}
         </div>
       </div>
 
@@ -455,7 +483,7 @@ function PlayerRow({
           {formatKDA(p.kills, p.deaths, p.assists)}
         </div>
         <div
-          className={`text-[10px] ${parseFloat(kda) >= 3 || kda === "Perfect" ? "text-lol-gold" : "text-lol-text"}`}
+          className={`text-[10px] ${parseFloat(kda) >= 3 || p.deaths === 0 ? "text-lol-gold" : "text-lol-text"}`}
         >
           {kda}
         </div>

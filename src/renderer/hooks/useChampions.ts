@@ -74,10 +74,10 @@ export function useAugmentData() {
   return data;
 }
 
-export function getChampionName(data: ChampionData, id: number): string {
-  return data[id]?.name || `Champion ${id}`;
+export function getChampionName(data: ChampionData, id: number, fallback?: string): string {
+  return data[id]?.name || fallback || `Champion ${id}`;
 }
 
-export function getAugmentName(data: AugmentData, id: number): string {
-  return data[id]?.name || `Augment ${id}`;
+export function getAugmentName(data: AugmentData, id: number, fallback?: string): string {
+  return data[id]?.name || fallback || `Augment ${id}`;
 }

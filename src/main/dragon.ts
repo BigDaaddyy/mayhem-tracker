@@ -1,5 +1,7 @@
 import https from "https";
 
+import { getSetting } from "./db";
+
 let championCache: Record<number, { name: string; key: string }> = {};
 let augmentCache: Record<number, { name: string; desc: string; iconPath: string; rarity: string }> =
   {};
@@ -53,6 +55,11 @@ function fetchJson(url: string): Promise<any> {
   });
 }
 
+function getChampionLocale(): string {
+  const lang = getSetting("language");
+  return lang === "en" ? "en_US" : "zh_CN";
+}
+
 export function loadChampionData() {
   championReady = (async () => {
     try {
@@ -60,15 +67,16 @@ export function loadChampionData() {
       const version = versions[0];
       gameDataVersion = version;
 
+      const locale = getChampionLocale();
       const data = await fetchJson(
-        `https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion.json`,
+        `https://ddragon.leagueoflegends.com/cdn/${version}/data/${locale}/champion.json`,
       );
       championCache = {};
       for (const [key, champ] of Object.entries(data.data) as any[]) {
         championCache[parseInt(champ.key)] = { name: champ.name, key };
       }
       console.log(
-        `Loaded ${Object.keys(championCache).length} champions from Data Dragon v${version}`,
+        `Loaded ${Object.keys(championCache).length} champions from Data Dragon v${version} (${locale})`,
       );
     } catch (err) {
       console.error("Failed to load champion data:", err);

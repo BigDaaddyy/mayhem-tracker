@@ -1,3 +1,5 @@
+import { useI18n } from "../hooks/useI18n";
+
 interface MultikillBadgeProps {
   doubles: number;
   triples: number;
@@ -6,16 +8,25 @@ interface MultikillBadgeProps {
 }
 
 export default function MultikillBadge({ doubles, triples, quadras, pentas }: MultikillBadgeProps) {
+  const { t } = useI18n();
   const badges: { label: string; count: number; color: string }[] = [];
 
   if (doubles > 0)
-    badges.push({ label: "DOUBLE", count: doubles, color: "bg-sky-500/20 text-sky-400" });
+    badges.push({ label: t("multikill.double"), count: doubles, color: "bg-sky-500/20 text-sky-400" });
   if (triples > 0)
-    badges.push({ label: "TRIPLE", count: triples, color: "bg-amber-500/20 text-amber-400" });
+    badges.push({
+      label: t("multikill.triple"),
+      count: triples,
+      color: "bg-amber-500/20 text-amber-400",
+    });
   if (quadras > 0)
-    badges.push({ label: "QUADRA", count: quadras, color: "bg-purple-500/20 text-purple-400" });
+    badges.push({
+      label: t("multikill.quadra"),
+      count: quadras,
+      color: "bg-purple-500/20 text-purple-400",
+    });
   if (pentas > 0)
-    badges.push({ label: "PENTA", count: pentas, color: "bg-red-500/20 text-red-400" });
+    badges.push({ label: t("multikill.penta"), count: pentas, color: "bg-red-500/20 text-red-400" });
 
   if (badges.length === 0) return null;
 

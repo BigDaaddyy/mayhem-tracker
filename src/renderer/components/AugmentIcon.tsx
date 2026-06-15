@@ -1,4 +1,5 @@
-import { useAugmentData, getAugmentName } from "../hooks/useChampions";
+import { useAugmentData } from "../hooks/useChampions";
+import { useI18n } from "../hooks/useI18n";
 import { AUGMENT_ICON_BASE } from "../lib/constants";
 
 interface AugmentIconProps {
@@ -19,22 +20,25 @@ const rarityTextColor: Record<string, string> = {
   kPrismatic: "text-fuchsia-400",
 };
 
-export function getAugmentRarityLabel(rarity: string): string {
-  if (rarity === "kSilver") return "Silver";
-  if (rarity === "kGold") return "Gold";
-  if (rarity === "kPrismatic") return "Prismatic";
-  return "";
+export function getAugmentRarityLabel(rarity: string, locale: "zh" | "en"): string {
+  const labels =
+    locale === "zh"
+      ? { kSilver: "白银", kGold: "黄金", kPrismatic: "棱彩" }
+      : { kSilver: "Silver", kGold: "Gold", kPrismatic: "Prismatic" };
+  return labels[rarity as keyof typeof labels] || "";
 }
 
 export default function AugmentIcon({ augmentId, size = 28, showName = false }: AugmentIconProps) {
+  const { t } = useI18n();
   const augmentData = useAugmentData();
   const aug = augmentData[augmentId];
 
   if (!aug) {
-    return showName ? <span className="text-xs text-lol-text">Augment {augmentId}</span> : null;
+    return showName ? (
+      <span className="text-xs text-lol-text">{t("augments.fallback", { id: augmentId })}</span>
+    ) : null;
   }
 
-  // CommunityDragon icon paths need to be converted
   const iconUrl = aug.iconPath
     ? AUGMENT_ICON_BASE +
       aug.iconPath.replace("/lol-game-data/assets/", "").replace("small", "large").toLowerCase()

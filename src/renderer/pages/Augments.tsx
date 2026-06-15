@@ -10,39 +10,14 @@ import type { AugmentStatsDetailed } from "../lib/types";
 import AugmentIcon from "../components/AugmentIcon";
 import ChampionIcon from "../components/ChampionIcon";
 import WinRateBar from "../components/WinRateBar";
+import { useI18n } from "../hooks/useI18n";
 
 type SortKey = "picks" | "winRate" | "name";
 type SortDir = "asc" | "desc";
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
 
-const rarityFilters: { key: RarityFilter; label: string; color: string; activeColor: string }[] = [
-  {
-    key: "all",
-    label: "All",
-    color: "text-lol-text",
-    activeColor: "bg-lol-gold/20 text-lol-gold border-lol-gold/50",
-  },
-  {
-    key: "kSilver",
-    label: "Silver",
-    color: "text-gray-300",
-    activeColor: "bg-gray-400/20 text-gray-200 border-gray-400/50",
-  },
-  {
-    key: "kGold",
-    label: "Gold",
-    color: "text-yellow-400",
-    activeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
-  },
-  {
-    key: "kPrismatic",
-    label: "Prismatic",
-    color: "text-fuchsia-400",
-    activeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/50",
-  },
-];
-
 export default function Augments() {
+  const { t } = useI18n();
   const champData = useChampionData();
   const augmentData = useAugmentData();
   const { data, loading, refetch } = useIpc<AugmentStatsDetailed[]>(() =>
@@ -53,6 +28,34 @@ export default function Augments() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [rarityFilter, setRarityFilter] = useState<RarityFilter>("all");
+
+  const rarityFilters: { key: RarityFilter; label: string; color: string; activeColor: string }[] =
+    [
+      {
+        key: "all",
+        label: t("augments.all"),
+        color: "text-lol-text",
+        activeColor: "bg-lol-gold/20 text-lol-gold border-lol-gold/50",
+      },
+      {
+        key: "kSilver",
+        label: t("augments.silver"),
+        color: "text-gray-300",
+        activeColor: "bg-gray-400/20 text-gray-200 border-gray-400/50",
+      },
+      {
+        key: "kGold",
+        label: t("augments.gold"),
+        color: "text-yellow-400",
+        activeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
+      },
+      {
+        key: "kPrismatic",
+        label: t("augments.prismatic"),
+        color: "text-fuchsia-400",
+        activeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/50",
+      },
+    ];
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
@@ -87,7 +90,11 @@ export default function Augments() {
     if (!data) return [];
     let filtered = data.filter((a) => {
       const aug = augmentData[a.augment_id];
-      const name = getAugmentName(augmentData, a.augment_id).toLowerCase();
+      const name = getAugmentName(
+        augmentData,
+        a.augment_id,
+        t("augments.fallback", { id: a.augment_id }),
+      ).toLowerCase();
       if (!name.includes(search.toLowerCase())) return false;
       if (rarityFilter !== "all" && aug?.rarity !== rarityFilter) return false;
       return true;
@@ -96,8 +103,16 @@ export default function Augments() {
     filtered.sort((a, b) => {
       let av: number, bv: number;
       if (sortKey === "name") {
-        const nameA = getAugmentName(augmentData, a.augment_id);
-        const nameB = getAugmentName(augmentData, b.augment_id);
+        const nameA = getAugmentName(
+          augmentData,
+          a.augment_id,
+          t("augments.fallback", { id: a.augment_id }),
+        );
+        const nameB = getAugmentName(
+          augmentData,
+          b.augment_id,
+          t("augments.fallback", { id: b.augment_id }),
+        );
         const cmp = nameA.localeCompare(nameB);
         return sortDir === "asc" ? cmp : -cmp;
       } else if (sortKey === "winRate") {
@@ -111,10 +126,10 @@ export default function Augments() {
     });
 
     return filtered;
-  }, [data, search, sortKey, sortDir, augmentData, rarityFilter]);
+  }, [data, search, sortKey, sortDir, augmentData, rarityFilter, t]);
 
   if (loading || !data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("loading")}</div>;
   }
 
   const SortHeader = ({
@@ -136,7 +151,7 @@ export default function Augments() {
 
   return (
     <div className="max-w-4xl space-y-4">
-      <h1 className="text-xl font-bold text-lol-text-bright">Augments</h1>
+      <h1 className="text-xl font-bold text-lol-text-bright">{t("augments.title")}</h1>
 
       {/* Rarity Filter + Search */}
       <div className="flex items-center gap-2">
@@ -153,13 +168,15 @@ export default function Augments() {
             {f.label}
           </button>
         ))}
-        <span className="text-xs text-lol-text self-center ml-2">{sorted.length} augments</span>
+        <span className="text-xs text-lol-text self-center ml-2">
+          {t("augments.count", { count: sorted.length })}
+        </span>
         <div className="relative ml-auto">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search augment..."
+            placeholder={t("augments.search")}
             className="bg-lol-card border border-lol-border rounded-lg px-3 py-1 text-xs text-lol-text-bright placeholder:text-lol-text/50 focus:outline-none focus:border-lol-gold/50 w-48 pr-7"
           />
           {search && (
@@ -189,12 +206,12 @@ export default function Augments() {
           <thead className="bg-lol-dark/50">
             <tr>
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-8"></th>
-              <SortHeader label="Augment" field="name" />
-              <SortHeader label="Picks" field="picks" />
+              <SortHeader label={t("augments.augment")} field="name" />
+              <SortHeader label={t("augments.picks")} field="picks" />
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                Pick Rate
+                {t("augments.pickRate")}
               </th>
-              <SortHeader label="Win Rate" field="winRate" className="w-32" />
+              <SortHeader label={t("augments.winRate")} field="winRate" className="w-32" />
             </tr>
           </thead>
           <tbody>
@@ -235,7 +252,11 @@ export default function Augments() {
                           <div className="flex items-center gap-2">
                             <ChampionIcon championId={c.champion_id} size={22} />
                             <span className="text-xs text-lol-text">
-                              {getChampionName(champData, c.champion_id)}
+                              {getChampionName(
+                                champData,
+                                c.champion_id,
+                                t("championFallback", { id: c.champion_id }),
+                              )}
                             </span>
                           </div>
                         </td>
@@ -252,7 +273,7 @@ export default function Augments() {
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No augments found</div>
+          <div className="py-8 text-center text-sm text-lol-text">{t("augments.notFound")}</div>
         )}
       </div>
     </div>

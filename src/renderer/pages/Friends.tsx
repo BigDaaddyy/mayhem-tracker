@@ -4,12 +4,14 @@ import { useChampionData, getChampionName } from "../hooks/useChampions";
 import type { TeammateStats } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
 import WinRateBar from "../components/WinRateBar";
-import { formatTimeAgo, kdaRatio, kdaColor, winRatePercent, winRateColor } from "../lib/format";
+import { kdaColor } from "../lib/format";
+import { useI18n } from "../hooks/useI18n";
 
 type SortKey = "games" | "winRate" | "kda" | "lastPlayed";
 type SortDir = "asc" | "desc";
 
 export default function Friends() {
+  const { t, formatTimeAgo, kdaRatio } = useI18n();
   const champData = useChampionData();
   const { data, loading, refetch } = useIpc<TeammateStats[]>(() => window.api.getTeammateStats());
   const [search, setSearch] = useState("");
@@ -60,7 +62,7 @@ export default function Friends() {
   }, [data, search, sortKey, sortDir]);
 
   if (loading || !data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("loading")}</div>;
   }
 
   const SortHeader = ({
@@ -84,15 +86,15 @@ export default function Friends() {
     <div className="max-w-5xl space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-lol-text-bright">Friends</h1>
-          <span className="text-sm text-lol-text">{sorted.length} players</span>
+          <h1 className="text-xl font-bold text-lol-text-bright">{t("friends.title")}</h1>
+          <span className="text-sm text-lol-text">{t("friends.players", { count: sorted.length })}</span>
         </div>
         <div className="relative">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search player..."
+            placeholder={t("friends.search")}
             className="bg-lol-card border border-lol-border rounded-lg px-3 py-1.5 text-sm text-lol-text-bright placeholder:text-lol-text/50 focus:outline-none focus:border-lol-gold/50 w-48 pr-7"
           />
           {search && (
@@ -125,38 +127,38 @@ export default function Friends() {
                 #
               </th>
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                Player
+                {t("friends.player")}
               </th>
-              <SortHeader label="Games" field="games" />
-              <SortHeader label="Win Rate" field="winRate" />
-              <SortHeader label="Their KDA" field="kda" />
+              <SortHeader label={t("friends.games")} field="games" />
+              <SortHeader label={t("friends.winRate")} field="winRate" />
+              <SortHeader label={t("friends.theirKda")} field="kda" />
               <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                Top Champions
+                {t("friends.topChampions")}
               </th>
-              <SortHeader label="Last Played" field="lastPlayed" />
+              <SortHeader label={t("friends.lastPlayed")} field="lastPlayed" />
             </tr>
           </thead>
           <tbody>
-            {sorted.map((t, i) => {
-              const avgKills = t.games > 0 ? t.kills / t.games : 0;
-              const avgDeaths = t.games > 0 ? t.deaths / t.games : 0;
-              const avgAssists = t.games > 0 ? t.assists / t.games : 0;
+            {sorted.map((player, i) => {
+              const avgKills = player.games > 0 ? player.kills / player.games : 0;
+              const avgDeaths = player.games > 0 ? player.deaths / player.games : 0;
+              const avgAssists = player.games > 0 ? player.assists / player.games : 0;
               const ratio =
                 avgDeaths > 0 ? (avgKills + avgAssists) / avgDeaths : avgKills + avgAssists;
-              const ratioStr = kdaRatio(t.kills, t.deaths, t.assists);
+              const ratioStr = kdaRatio(player.kills, player.deaths, player.assists);
 
               return (
                 <tr
-                  key={t.puuid || t.name}
+                  key={player.puuid || player.name}
                   className="border-t border-lol-border/50 hover:bg-lol-card-hover transition-colors"
                 >
                   <td className="px-3 py-2 text-xs text-lol-text">{i + 1}</td>
                   <td className="px-3 py-2">
-                    <span className="text-sm text-lol-text-bright">{t.name}</span>
+                    <span className="text-sm text-lol-text-bright">{player.name}</span>
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-text-bright">{t.games}</td>
+                  <td className="px-3 py-2 text-sm text-lol-text-bright">{player.games}</td>
                   <td className="px-3 py-2 w-32">
-                    <WinRateBar wins={t.wins} total={t.games} />
+                    <WinRateBar wins={player.wins} total={player.games} />
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col">
@@ -168,24 +170,31 @@ export default function Friends() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
-                      {t.champions.slice(0, 3).map((c) => (
+                      {player.champions.slice(0, 3).map((c) => (
                         <div key={c.champion_id} className="relative group">
                           <ChampionIcon championId={c.champion_id} size={24} />
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-lol-dark border border-lol-border rounded px-2 py-1 text-[10px] text-lol-text-bright whitespace-nowrap z-10">
-                            {getChampionName(champData, c.champion_id)} ({c.games})
+                            {getChampionName(
+                              champData,
+                              c.champion_id,
+                              t("championFallback", { id: c.champion_id }),
+                            )}{" "}
+                            ({c.games})
                           </div>
                         </div>
                       ))}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-sm text-lol-text">{formatTimeAgo(t.lastPlayed)}</td>
+                  <td className="px-3 py-2 text-sm text-lol-text">
+                    {formatTimeAgo(player.lastPlayed)}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No players found</div>
+          <div className="py-8 text-center text-sm text-lol-text">{t("friends.notFound")}</div>
         )}
       </div>
     </div>

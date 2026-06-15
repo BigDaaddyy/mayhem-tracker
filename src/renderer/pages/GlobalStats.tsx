@@ -10,39 +10,13 @@ import type { GlobalStats } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import WinRateBar from "../components/WinRateBar";
+import { useI18n } from "../hooks/useI18n";
 
 type Tab = "champions" | "augments";
 type ChampSortKey = "games" | "winRate" | "pickRate" | "name";
 type AugSortKey = "picks" | "winRate" | "pickRate" | "name";
 type SortDir = "asc" | "desc";
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
-
-const rarityFilters: { key: RarityFilter; label: string; color: string; activeColor: string }[] = [
-  {
-    key: "all",
-    label: "All",
-    color: "text-lol-text",
-    activeColor: "bg-lol-gold/20 text-lol-gold border-lol-gold/50",
-  },
-  {
-    key: "kSilver",
-    label: "Silver",
-    color: "text-gray-300",
-    activeColor: "bg-gray-400/20 text-gray-200 border-gray-400/50",
-  },
-  {
-    key: "kGold",
-    label: "Gold",
-    color: "text-yellow-400",
-    activeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
-  },
-  {
-    key: "kPrismatic",
-    label: "Prismatic",
-    color: "text-fuchsia-400",
-    activeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/50",
-  },
-];
 
 function SearchInput({
   value,
@@ -86,6 +60,7 @@ function SearchInput({
 }
 
 export default function GlobalStats() {
+  const { t } = useI18n();
   const champData = useChampionData();
   const augmentData = useAugmentData();
   const { data, loading, refetch } = useIpc<GlobalStats>(() => window.api.getGlobalStats());
@@ -101,6 +76,34 @@ export default function GlobalStats() {
   const [augSortKey, setAugSortKey] = useState<AugSortKey>("picks");
   const [augSortDir, setAugSortDir] = useState<SortDir>("desc");
   const [rarityFilter, setRarityFilter] = useState<RarityFilter>("all");
+
+  const rarityFilters: { key: RarityFilter; label: string; color: string; activeColor: string }[] =
+    [
+      {
+        key: "all",
+        label: t("augments.all"),
+        color: "text-lol-text",
+        activeColor: "bg-lol-gold/20 text-lol-gold border-lol-gold/50",
+      },
+      {
+        key: "kSilver",
+        label: t("augments.silver"),
+        color: "text-gray-300",
+        activeColor: "bg-gray-400/20 text-gray-200 border-gray-400/50",
+      },
+      {
+        key: "kGold",
+        label: t("augments.gold"),
+        color: "text-yellow-400",
+        activeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
+      },
+      {
+        key: "kPrismatic",
+        label: t("augments.prismatic"),
+        color: "text-fuchsia-400",
+        activeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/50",
+      },
+    ];
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
@@ -130,15 +133,27 @@ export default function GlobalStats() {
   const sortedChampions = useMemo(() => {
     if (!data) return [];
     let filtered = data.champions.filter((c) => {
-      const name = getChampionName(champData, c.champion_id).toLowerCase();
+      const name = getChampionName(
+        champData,
+        c.champion_id,
+        t("championFallback", { id: c.champion_id }),
+      ).toLowerCase();
       return name.includes(champSearch.toLowerCase());
     });
 
     filtered.sort((a, b) => {
       let av: number, bv: number;
       if (champSortKey === "name") {
-        const nameA = getChampionName(champData, a.champion_id);
-        const nameB = getChampionName(champData, b.champion_id);
+        const nameA = getChampionName(
+          champData,
+          a.champion_id,
+          t("championFallback", { id: a.champion_id }),
+        );
+        const nameB = getChampionName(
+          champData,
+          b.champion_id,
+          t("championFallback", { id: b.champion_id }),
+        );
         const cmp = nameA.localeCompare(nameB);
         return champSortDir === "asc" ? cmp : -cmp;
       } else if (champSortKey === "winRate") {
@@ -155,12 +170,16 @@ export default function GlobalStats() {
     });
 
     return filtered;
-  }, [data, champSearch, champSortKey, champSortDir, champData]);
+  }, [data, champSearch, champSortKey, champSortDir, champData, t]);
 
   const sortedAugments = useMemo(() => {
     if (!data) return [];
     let filtered = data.augments.filter((a) => {
-      const name = getAugmentName(augmentData, a.augment_id).toLowerCase();
+      const name = getAugmentName(
+        augmentData,
+        a.augment_id,
+        t("augments.fallback", { id: a.augment_id }),
+      ).toLowerCase();
       if (!name.includes(augSearch.toLowerCase())) return false;
       if (rarityFilter !== "all" && augmentData[a.augment_id]?.rarity !== rarityFilter)
         return false;
@@ -170,8 +189,16 @@ export default function GlobalStats() {
     filtered.sort((a, b) => {
       let av: number, bv: number;
       if (augSortKey === "name") {
-        const nameA = getAugmentName(augmentData, a.augment_id);
-        const nameB = getAugmentName(augmentData, b.augment_id);
+        const nameA = getAugmentName(
+          augmentData,
+          a.augment_id,
+          t("augments.fallback", { id: a.augment_id }),
+        );
+        const nameB = getAugmentName(
+          augmentData,
+          b.augment_id,
+          t("augments.fallback", { id: b.augment_id }),
+        );
         const cmp = nameA.localeCompare(nameB);
         return augSortDir === "asc" ? cmp : -cmp;
       } else if (augSortKey === "winRate") {
@@ -188,10 +215,10 @@ export default function GlobalStats() {
     });
 
     return filtered;
-  }, [data, augSearch, augSortKey, augSortDir, augmentData, rarityFilter]);
+  }, [data, augSearch, augSortKey, augSortDir, augmentData, rarityFilter, t]);
 
   if (loading || !data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="text-lol-text text-center mt-20">{t("loading")}</div>;
   }
 
   const ChampSortHeader = ({
@@ -231,10 +258,13 @@ export default function GlobalStats() {
   return (
     <div className="max-w-4xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Total Stats</h1>
+        <h1 className="text-xl font-bold text-lol-text-bright">{t("global.title")}</h1>
         <span className="text-xs text-lol-text">
-          {totalGames} games &middot; {data.champions.length} champions &middot;{" "}
-          {data.augments.length} augments
+          {t("global.summary", {
+            games: totalGames,
+            champions: data.champions.length,
+            augments: data.augments.length,
+          })}
         </span>
       </div>
 
@@ -248,7 +278,7 @@ export default function GlobalStats() {
               : "text-lol-text border-lol-border bg-lol-card hover:border-lol-border/80"
           }`}
         >
-          Champions
+          {t("global.tabChampions")}
         </button>
         <button
           onClick={() => setTab("augments")}
@@ -258,18 +288,20 @@ export default function GlobalStats() {
               : "text-lol-text border-lol-border bg-lol-card hover:border-lol-border/80"
           }`}
         >
-          Augments
+          {t("global.tabAugments")}
         </button>
       </div>
 
       {tab === "champions" && (
         <>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-lol-text">{sortedChampions.length} champions</span>
+            <span className="text-xs text-lol-text">
+              {t("global.championsCount", { count: sortedChampions.length })}
+            </span>
             <SearchInput
               value={champSearch}
               onChange={setChampSearch}
-              placeholder="Search champion..."
+              placeholder={t("global.searchChampion")}
             />
           </div>
 
@@ -280,10 +312,10 @@ export default function GlobalStats() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-12">
                     #
                   </th>
-                  <ChampSortHeader label="Champion" field="name" />
-                  <ChampSortHeader label="Games" field="games" />
-                  <ChampSortHeader label="Pick Rate" field="pickRate" />
-                  <ChampSortHeader label="Win Rate" field="winRate" className="w-32" />
+                  <ChampSortHeader label={t("global.champion")} field="name" />
+                  <ChampSortHeader label={t("global.games")} field="games" />
+                  <ChampSortHeader label={t("global.pickRate")} field="pickRate" />
+                  <ChampSortHeader label={t("global.winRate")} field="winRate" className="w-32" />
                 </tr>
               </thead>
               <tbody>
@@ -302,7 +334,11 @@ export default function GlobalStats() {
                         <div className="flex items-center gap-2">
                           <ChampionIcon championId={c.champion_id} size={28} />
                           <span className="text-sm text-lol-text-bright">
-                            {getChampionName(champData, c.champion_id)}
+                            {getChampionName(
+                              champData,
+                              c.champion_id,
+                              t("championFallback", { id: c.champion_id }),
+                            )}
                           </span>
                         </div>
                       </td>
@@ -317,7 +353,7 @@ export default function GlobalStats() {
               </tbody>
             </table>
             {sortedChampions.length === 0 && (
-              <div className="py-8 text-center text-sm text-lol-text">No champions found</div>
+              <div className="py-8 text-center text-sm text-lol-text">{t("global.notFoundChampions")}</div>
             )}
           </div>
         </>
@@ -340,13 +376,13 @@ export default function GlobalStats() {
               </button>
             ))}
             <span className="text-xs text-lol-text self-center ml-2">
-              {sortedAugments.length} augments
+              {t("global.augmentsCount", { count: sortedAugments.length })}
             </span>
             <div className="ml-auto">
               <SearchInput
                 value={augSearch}
                 onChange={setAugSearch}
-                placeholder="Search augment..."
+                placeholder={t("global.searchAugment")}
               />
             </div>
           </div>
@@ -355,12 +391,12 @@ export default function GlobalStats() {
             <table className="w-full">
               <thead className="bg-lol-dark/50">
                 <tr>
-                  <AugSortHeader label="Augment" field="name" />
-                  <AugSortHeader label="Picks" field="picks" />
+                  <AugSortHeader label={t("global.augment")} field="name" />
+                  <AugSortHeader label={t("global.picks")} field="picks" />
                   <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider">
-                    Pick Rate
+                    {t("global.pickRate")}
                   </th>
-                  <AugSortHeader label="Win Rate" field="winRate" className="w-32" />
+                  <AugSortHeader label={t("global.winRate")} field="winRate" className="w-32" />
                 </tr>
               </thead>
               <tbody>
@@ -388,7 +424,7 @@ export default function GlobalStats() {
               </tbody>
             </table>
             {sortedAugments.length === 0 && (
-              <div className="py-8 text-center text-sm text-lol-text">No augments found</div>
+              <div className="py-8 text-center text-sm text-lol-text">{t("global.notFoundAugments")}</div>
             )}
           </div>
         </>
