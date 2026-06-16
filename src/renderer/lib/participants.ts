@@ -1,3 +1,4 @@
+import { extractHonorsFromRaw } from "../../shared/matchHonors";
 import type { ParsedParticipant } from "./types";
 
 export function parseParticipants(raw: any, selfPuuids: string[] | null): ParsedParticipant[] {
@@ -5,6 +6,7 @@ export function parseParticipants(raw: any, selfPuuids: string[] | null): Parsed
 
   const participants = raw.participants || [];
   const identities = raw.participantIdentities || [];
+  const honors = extractHonorsFromRaw(raw);
 
   return participants.map((p: any, i: number) => {
     const s = p.stats || p;
@@ -46,6 +48,7 @@ export function parseParticipants(raw: any, selfPuuids: string[] | null): Parsed
       augments: [1, 2, 3, 4].map((n) => s[`playerAugment${n}`] ?? 0).filter((id: number) => id > 0),
       win: !!s.win,
       isSelf: selfPuuids != null && puuid != null && selfPuuids.includes(puuid),
+      honor: honors.get(p.participantId ?? i + 1) ?? null,
     };
   });
 }

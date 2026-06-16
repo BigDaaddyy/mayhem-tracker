@@ -166,6 +166,13 @@ export const messages = {
       penta: "五杀",
     },
 
+    honor: {
+      mvp: "MVP",
+      svp: "SVP",
+      mvpTitle: "全场最佳（胜方）",
+      svpTitle: "败方最佳",
+    },
+
     kdaPerfect: "完美",
     championFallback: "英雄 {id}",
   },
@@ -332,6 +339,13 @@ export const messages = {
       triple: "TRIPLE",
       quadra: "QUADRA",
       penta: "PENTA",
+    },
+
+    honor: {
+      mvp: "MVP",
+      svp: "SVP",
+      mvpTitle: "Most Valuable Player (winning team)",
+      svpTitle: "Second Valuable Player (losing team)",
     },
 
     kdaPerfect: "Perfect",

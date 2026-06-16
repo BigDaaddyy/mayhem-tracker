@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { app } from "electron";
+import { getSelfHonorFromRaw } from "../shared/matchHonors";
 
 let db: Database.Database;
 
@@ -225,6 +226,19 @@ function extractGameMaxStats(rawJson: string | null): {
   }
 }
 
+function extractSelfHonor(
+  rawJson: string | null,
+  puuid: string,
+  isRemake: number,
+): "mvp" | "svp" | null {
+  if (!rawJson || isRemake) return null;
+  try {
+    return getSelfHonorFromRaw(JSON.parse(rawJson), puuid);
+  } catch {
+    return null;
+  }
+}
+
 // ---- Query functions ----
 
 export function getMatchHistory(limit: number, offset: number): { matches: any[]; total: number } {
@@ -246,7 +260,11 @@ export function getMatchHistory(limit: number, offset: number): { matches: any[]
   const matches = rows.map((row: any) => {
     const maxStats = extractGameMaxStats(row.raw_json);
     const { raw_json, ...match } = row;
-    return { ...match, ...maxStats };
+    return {
+      ...match,
+      ...maxStats,
+      self_honor: extractSelfHonor(raw_json, row.puuid, row.is_remake),
+    };
   });
   return { matches, total: total.count };
 }
@@ -469,7 +487,11 @@ export function getChampionMatchHistory(
   const matches = rows.map((row: any) => {
     const maxStats = extractGameMaxStats(row.raw_json);
     const { raw_json, ...match } = row;
-    return { ...match, ...maxStats };
+    return {
+      ...match,
+      ...maxStats,
+      self_honor: extractSelfHonor(raw_json, row.puuid, row.is_remake),
+    };
   });
   return { matches, total: total.count };
 }

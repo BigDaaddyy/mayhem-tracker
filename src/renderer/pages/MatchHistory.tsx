@@ -8,6 +8,7 @@ import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import ItemIcon from "../components/ItemIcon";
 import MultikillBadge from "../components/MultikillBadge";
+import HonorBadge from "../components/HonorBadge";
 import StatCard from "../components/StatCard";
 import { formatDuration, formatKDA } from "../lib/format";
 import { useI18n } from "../hooks/useI18n";
@@ -250,8 +251,11 @@ function GameRow({
         </div>
         <ChampionIcon championId={match.champion_id} size={36} />
         <div className="w-24 shrink-0">
-          <div className="text-sm text-lol-text-bright truncate">
-            {getChampionName(champData, match.champion_id, t("championFallback", { id: match.champion_id }))}
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="text-sm text-lol-text-bright truncate">
+              {getChampionName(champData, match.champion_id, t("championFallback", { id: match.champion_id }))}
+            </div>
+            {match.self_honor && <HonorBadge honor={match.self_honor} />}
           </div>
         </div>
         <div className="w-24 shrink-0">
@@ -472,8 +476,11 @@ function PlayerRow({
         >
           {p.summonerName}
         </div>
-        <div className="text-[10px] text-lol-text truncate">
-          {getChampionName(champData, p.championId, t("championFallback", { id: p.championId }))}
+        <div className="flex items-center gap-1 min-w-0">
+          <div className="text-[10px] text-lol-text truncate">
+            {getChampionName(champData, p.championId, t("championFallback", { id: p.championId }))}
+          </div>
+          {p.honor && <HonorBadge honor={p.honor} />}
         </div>
       </div>
 

@@ -39,6 +39,8 @@ export interface GameAugment {
   augment_id: number;
 }
 
+export type MatchHonor = "mvp" | "svp";
+
 export interface MatchListItem {
   game_id: number;
   game_creation: number;
@@ -67,6 +69,7 @@ export interface MatchListItem {
   game_max_dmg: number;
   game_max_taken: number;
   game_max_heal: number;
+  self_honor?: MatchHonor | null;
 }
 
 export interface MatchDetail {
@@ -186,6 +189,7 @@ export interface ParsedParticipant {
   augments: number[];
   win: boolean;
   isSelf: boolean;
+  honor: MatchHonor | null;
 }
 
 export type LcuStatus = "disconnected" | "connecting" | "connected";
