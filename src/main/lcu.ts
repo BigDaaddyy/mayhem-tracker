@@ -1,4 +1,11 @@
-import { authenticate, createHttp1Request, Credentials, HttpRequestOptions } from "league-connect";
+import {
+  authenticate,
+  createHttp1Request,
+  createWebSocketConnection,
+  type Credentials,
+  type HttpRequestOptions,
+  type LeagueWebSocket,
+} from "league-connect";
 import { BrowserWindow } from "electron";
 import * as db from "./db";
 
@@ -6,6 +13,14 @@ let credentials: Credentials | null = null;
 let status: "disconnected" | "connecting" | "connected" = "disconnected";
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let connectTimer: ReturnType<typeof setInterval> | null = null;
+let lcuWs: LeagueWebSocket | null = null;
+let winRef: BrowserWindow | null = null;
+let fetchAfterGameTimer: ReturnType<typeof setTimeout> | null = null;
+let fetchAfterGameInProgress = false;
+let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+const END_GAME_PHASES = new Set(["PreEndOfGame", "EndOfGame", "WaitingForStats"]);
+const POST_GAME_FETCH_DELAYS_MS = [0, 3000, 8000, 15000];
 
 function setStatus(newStatus: typeof status, win?: BrowserWindow | null) {
   status = newStatus;
@@ -103,8 +118,101 @@ export async function fetchNewGames(
   return { newGames: newGamesCount, totalGames: dashboard.totalGames };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchNewGamesWithRetry(win: BrowserWindow): Promise<void> {
+  if (fetchAfterGameInProgress) return;
+  fetchAfterGameInProgress = true;
+
+  try {
+    for (const delay of POST_GAME_FETCH_DELAYS_MS) {
+      if (delay > 0) await sleep(delay);
+      try {
+        const result = await fetchNewGames(win);
+        if (result.newGames > 0) {
+          console.log("Auto-fetched new game after match end");
+          return;
+        }
+      } catch (err) {
+        console.log("Post-game fetch retry error:", err);
+      }
+    }
+  } finally {
+    fetchAfterGameInProgress = false;
+  }
+}
+
+function scheduleFetchAfterGameEnd(win: BrowserWindow): void {
+  if (fetchAfterGameTimer) clearTimeout(fetchAfterGameTimer);
+  fetchAfterGameTimer = setTimeout(() => {
+    fetchAfterGameTimer = null;
+    void fetchNewGamesWithRetry(win);
+  }, 500);
+}
+
+function setupWebSocketHandlers(ws: LeagueWebSocket, win: BrowserWindow): void {
+  ws.subscribe("lol-gameflow/v1/gameflow-phase", (phase) => {
+    if (typeof phase === "string" && END_GAME_PHASES.has(phase)) {
+      console.log(`Game ended (phase: ${phase}), scheduling fetch`);
+      scheduleFetchAfterGameEnd(win);
+    }
+  });
+
+  ws.subscribe("lol-end-of-game/v1/eog-stats-block", (data) => {
+    if (data && typeof data === "object") {
+      console.log("End-of-game stats received, scheduling fetch");
+      scheduleFetchAfterGameEnd(win);
+    }
+  });
+
+  ws.on("close", () => {
+    lcuWs = null;
+    if (status === "connected" && winRef && !winRef.isDestroyed()) {
+      if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = setTimeout(() => {
+        wsReconnectTimer = null;
+        void connectWebSocket(winRef!);
+      }, 3000);
+    }
+  });
+}
+
+async function connectWebSocket(win: BrowserWindow): Promise<void> {
+  stopWebSocket();
+
+  try {
+    const ws = await createWebSocketConnection({
+      authenticationOptions: { windowsShell: "powershell" },
+      maxRetries: 3,
+    });
+    lcuWs = ws;
+    setupWebSocketHandlers(ws, win);
+    console.log("LCU WebSocket connected");
+  } catch (err) {
+    console.log("LCU WebSocket connection failed:", err);
+  }
+}
+
+function stopWebSocket(): void {
+  if (wsReconnectTimer) {
+    clearTimeout(wsReconnectTimer);
+    wsReconnectTimer = null;
+  }
+  if (lcuWs) {
+    try {
+      lcuWs.removeAllListeners("close");
+      lcuWs.close();
+    } catch {
+      /* ignore */
+    }
+    lcuWs = null;
+  }
+}
+
 export function startPolling(win: BrowserWindow, firstAttempt = true) {
-  // Show "connecting" only on the very first attempt after app launch
+  winRef = win;
   setStatus(firstAttempt ? "connecting" : "disconnected", win);
 
   connectTimer = setInterval(async () => {
@@ -116,16 +224,15 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
         connectTimer = null;
       }
 
-      // Do initial fetch
       await fetchNewGames(win);
+      void connectWebSocket(win);
 
-      // Start polling for new games every 60s
       pollTimer = setInterval(async () => {
         try {
           await fetchNewGames(win);
         } catch (err) {
           console.log("Poll fetch error:", err);
-          // Lost connection, restart connect loop
+          stopWebSocket();
           if (pollTimer) {
             clearInterval(pollTimer);
             pollTimer = null;
@@ -134,7 +241,6 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
         }
       }, 60000);
     } catch {
-      // Client not found yet — after first attempt, show disconnected
       if (firstAttempt) {
         firstAttempt = false;
         setStatus("disconnected", win);
@@ -144,6 +250,14 @@ export function startPolling(win: BrowserWindow, firstAttempt = true) {
 }
 
 export function stopPolling() {
+  if (fetchAfterGameTimer) {
+    clearTimeout(fetchAfterGameTimer);
+    fetchAfterGameTimer = null;
+  }
+  fetchAfterGameInProgress = false;
+  stopWebSocket();
+  winRef = null;
+
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;
