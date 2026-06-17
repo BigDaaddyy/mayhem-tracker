@@ -7,6 +7,7 @@ export const messages = {
       matchHistory: "对局记录",
       champions: "英雄",
       augments: "强化符文",
+      analytics: "数据分析",
       friends: "队友",
       global: "全局统计",
       settings: "设置",
@@ -127,6 +128,18 @@ export const messages = {
       fallback: "强化 {id}",
     },
 
+    analytics: {
+      selectChampion: "选择英雄",
+      gamesWinRate: "{games} 场 · {winRate}%",
+      summary: "{games} 场对局 · 英雄胜率 {winRate}% · {augments} 种强化",
+      baseline: "英雄基准胜率",
+      rarity: "品质",
+      vsBaseline: "对比基准",
+      minPicks: "最少场次",
+      augmentCount: "{count} 个强化",
+      noAugments: "暂无符合条件的强化数据",
+    },
+
     friends: {
       title: "队友",
       players: "{count} 名玩家",
@@ -182,6 +195,7 @@ export const messages = {
       matchHistory: "Match History",
       champions: "Champions",
       augments: "Augments",
+      analytics: "Analytics",
       friends: "Friends",
       global: "Total Stats",
       settings: "Settings",
@@ -300,6 +314,18 @@ export const messages = {
       winRate: "Win Rate",
       notFound: "No augments found",
       fallback: "Augment {id}",
+    },
+
+    analytics: {
+      selectChampion: "Select Champion",
+      gamesWinRate: "{games} games · {winRate}%",
+      summary: "{games} games · {winRate}% champ WR · {augments} augments",
+      baseline: "Champion Baseline",
+      rarity: "Rarity",
+      vsBaseline: "vs Baseline",
+      minPicks: "Min picks",
+      augmentCount: "{count} augments",
+      noAugments: "No augments match the current filters",
     },
 
     friends: {

@@ -8,6 +8,7 @@ const links: { to: string; labelKey: MessageKey; icon: string }[] = [
   { to: "/", labelKey: "nav.matchHistory", icon: "⚔️" },
   { to: "/champions", labelKey: "nav.champions", icon: "🏆" },
   { to: "/augments", labelKey: "nav.augments", icon: "🎯" },
+  { to: "/analytics", labelKey: "nav.analytics", icon: "📊" },
   { to: "/friends", labelKey: "nav.friends", icon: "👥" },
   { to: "/global", labelKey: "nav.global", icon: "🌐" },
 ];

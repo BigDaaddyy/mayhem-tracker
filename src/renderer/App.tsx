@@ -5,6 +5,7 @@ import Champions from "./pages/Champions";
 import Augments from "./pages/Augments";
 import Friends from "./pages/Friends";
 import GlobalStats from "./pages/GlobalStats";
+import ChampionAugmentAnalytics from "./pages/ChampionAugmentAnalytics";
 import Settings from "./pages/Settings";
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/" element={<MatchHistory />} />
           <Route path="/champions" element={<Champions />} />
           <Route path="/augments" element={<Augments />} />
+          <Route path="/analytics" element={<ChampionAugmentAnalytics />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="/global" element={<GlobalStats />} />
           <Route path="/settings" element={<Settings />} />
