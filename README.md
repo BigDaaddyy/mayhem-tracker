@@ -10,9 +10,10 @@
 
 ### 功能
 
-- 通过 LCU 自动检测并记录 Mayhem 对局
-- 对局历史与单场详情（装备、强化、KDA 等）
-- 英雄、强化、队友统计与胜率
+- 通过 LCU 自动检测并记录 Mayhem 对局；对局结束后通过 WebSocket 即时同步
+- 对局历史与单场详情（装备、强化、KDA、MVP/SVP 徽章等）
+- 英雄、强化、队友统计与胜率；**数据分析**页按英雄查看各强化胜率
+- **全局游戏版本筛选**（按补丁统计，避免跨版本数据混淆）
 - 聚合全场玩家数据
 - 本地 SQLite 数据库，数据保存在本机
 - 启动时自动刷新游戏资源（英雄名、强化名、装备图标版本）
@@ -66,9 +67,10 @@ Desktop app for tracking **ARAM Mayhem** (queueId 2400) match history in League 
 
 ### Features
 
-- Automatic Mayhem match detection via LCU
-- Match history with per-game breakdowns (items, augments, KDA, etc.)
-- Champion, augment, and teammate stats with win rates
+- Automatic Mayhem match detection via LCU; instant sync when a game ends (WebSocket)
+- Match history with per-game breakdowns (items, augments, KDA, MVP/SVP badges, etc.)
+- Champion, augment, and teammate stats with win rates; **Analytics** tab for per-champion augment win rates
+- **Global patch version filter** across all tabs to avoid mixed-patch statistics
 - Aggregate statistics across all players in your games
 - Local SQLite database
 - Game data refresh on startup (champion/augment names, item icon patch)
