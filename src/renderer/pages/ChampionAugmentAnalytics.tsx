@@ -11,6 +11,7 @@ import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import WinRateBar from "../components/WinRateBar";
 import { useI18n } from "../hooks/useI18n";
+import { usePatchVersion } from "../hooks/usePatchVersion";
 
 type SortKey = "picks" | "winRate" | "name" | "delta";
 type SortDir = "asc" | "desc";
@@ -28,10 +29,12 @@ function winRate(wins: number, total: number): number {
 
 export default function ChampionAugmentAnalytics() {
   const { t } = useI18n();
+  const { patchFilter, ready } = usePatchVersion();
   const champData = useChampionData();
   const augmentData = useAugmentData();
-  const { data: champions, loading, refetch } = useIpc<ChampionStats[]>(() =>
-    window.api.getChampionStats(),
+  const { data: champions, loading, refetch } = useIpc<ChampionStats[]>(
+    () => window.api.getChampionStats(patchFilter),
+    [patchFilter],
   );
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -57,21 +60,21 @@ export default function ChampionAugmentAnalytics() {
   }, [champions, selectedId]);
 
   useEffect(() => {
-    if (selectedId === null) return;
+    if (selectedId === null || !ready) return;
     setAugLoading(true);
     window.api
-      .getAugmentStats(selectedId)
+      .getAugmentStats(selectedId, patchFilter)
       .then(setAugStats)
       .finally(() => setAugLoading(false));
-  }, [selectedId, champions]);
+  }, [selectedId, patchFilter, ready]);
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => {
-      if (selectedId === null) return;
-      window.api.getAugmentStats(selectedId).then(setAugStats);
+      if (selectedId === null || !ready) return;
+      window.api.getAugmentStats(selectedId, patchFilter).then(setAugStats);
     });
     return unsub;
-  }, [selectedId]);
+  }, [selectedId, patchFilter, ready]);
 
   const filteredChampions = useMemo(() => {
     if (!champions) return [];
@@ -179,7 +182,7 @@ export default function ChampionAugmentAnalytics() {
     return filtered;
   }, [augStats, augSearch, sortKey, sortDir, augmentData, rarityFilter, minPicks, baselineWinRate, t]);
 
-  if (loading || !champions) {
+  if (loading || !ready || !champions) {
     return <div className="text-lol-text text-center mt-20">{t("loading")}</div>;
   }
 

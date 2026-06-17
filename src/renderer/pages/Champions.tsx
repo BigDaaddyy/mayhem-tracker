@@ -9,6 +9,7 @@ import WinRateBar from "../components/WinRateBar";
 import MultikillBadge from "../components/MultikillBadge";
 import { formatKDA, formatDuration } from "../lib/format";
 import { useI18n } from "../hooks/useI18n";
+import { usePatchVersion } from "../hooks/usePatchVersion";
 
 type SortKey =
   | "games"
@@ -23,16 +24,19 @@ type SortDir = "asc" | "desc";
 
 function ChampionExpanded({ championId }: { championId: number }) {
   const { t, formatTimeAgo } = useI18n();
+  const { patchFilter } = usePatchVersion();
   const augData = useAugmentData();
   const [augStats, setAugStats] = useState<AugmentStats[] | null>(null);
   const [itemStats, setItemStats] = useState<ItemStats[] | null>(null);
   const [matches, setMatches] = useState<MatchListItem[] | null>(null);
 
   useEffect(() => {
-    window.api.getAugmentStats(championId).then(setAugStats);
-    window.api.getChampionItemStats(championId).then(setItemStats);
-    window.api.getChampionMatchHistory(championId, 5, 0).then((r) => setMatches(r.matches));
-  }, [championId]);
+    window.api.getAugmentStats(championId, patchFilter).then(setAugStats);
+    window.api.getChampionItemStats(championId, patchFilter).then(setItemStats);
+    window.api
+      .getChampionMatchHistory(championId, 5, 0, patchFilter)
+      .then((r) => setMatches(r.matches));
+  }, [championId, patchFilter]);
 
   if (!augStats || !itemStats || !matches) {
     return (
@@ -152,8 +156,12 @@ function ChampionExpanded({ championId }: { championId: number }) {
 
 export default function Champions() {
   const { t } = useI18n();
+  const { patchFilter, ready } = usePatchVersion();
   const champData = useChampionData();
-  const { data, loading, refetch } = useIpc<ChampionStats[]>(() => window.api.getChampionStats());
+  const { data, loading, refetch } = useIpc<ChampionStats[]>(
+    () => window.api.getChampionStats(patchFilter),
+    [patchFilter],
+  );
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("games");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -206,7 +214,7 @@ export default function Champions() {
     return filtered;
   }, [data, search, sortKey, sortDir, champData, t]);
 
-  if (loading || !data) {
+  if (loading || !ready || !data) {
     return <div className="text-lol-text text-center mt-20">{t("loading")}</div>;
   }
 

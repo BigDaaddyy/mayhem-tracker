@@ -1,21 +1,30 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 const api = {
-  getMatchHistory: (limit: number, offset: number) =>
-    ipcRenderer.invoke("db:match-history", limit, offset),
+  getMatchHistory: (limit: number, offset: number, patchVersion?: string) =>
+    ipcRenderer.invoke("db:match-history", limit, offset, patchVersion),
 
   getMatchDetail: (gameId: number) => ipcRenderer.invoke("db:match-detail", gameId),
 
-  getChampionStats: () => ipcRenderer.invoke("db:champion-stats"),
+  getChampionStats: (patchVersion?: string) =>
+    ipcRenderer.invoke("db:champion-stats", patchVersion),
 
-  getAugmentStats: (championId?: number) => ipcRenderer.invoke("db:augment-stats", championId),
+  getAugmentStats: (championId?: number, patchVersion?: string) =>
+    ipcRenderer.invoke("db:augment-stats", championId, patchVersion),
 
-  getAugmentStatsDetailed: () => ipcRenderer.invoke("db:augment-stats-detailed"),
+  getGamePatchVersions: () => ipcRenderer.invoke("db:game-patch-versions"),
 
-  getDashboard: () => ipcRenderer.invoke("db:dashboard"),
+  getAugmentStatsDetailed: (patchVersion?: string) =>
+    ipcRenderer.invoke("db:augment-stats-detailed", patchVersion),
 
-  getChampionMatchHistory: (championId: number, limit: number, offset: number) =>
-    ipcRenderer.invoke("db:champion-match-history", championId, limit, offset),
+  getDashboard: (patchVersion?: string) => ipcRenderer.invoke("db:dashboard", patchVersion),
+
+  getChampionMatchHistory: (
+    championId: number,
+    limit: number,
+    offset: number,
+    patchVersion?: string,
+  ) => ipcRenderer.invoke("db:champion-match-history", championId, limit, offset, patchVersion),
 
   refreshGames: () => ipcRenderer.invoke("lcu:refresh"),
 
@@ -29,12 +38,13 @@ const api = {
 
   reloadGameData: () => ipcRenderer.invoke("dragon:reload"),
 
-  getChampionItemStats: (championId: number) =>
-    ipcRenderer.invoke("db:champion-item-stats", championId),
+  getChampionItemStats: (championId: number, patchVersion?: string) =>
+    ipcRenderer.invoke("db:champion-item-stats", championId, patchVersion),
 
-  getTeammateStats: () => ipcRenderer.invoke("db:teammate-stats"),
+  getTeammateStats: (patchVersion?: string) =>
+    ipcRenderer.invoke("db:teammate-stats", patchVersion),
 
-  getGlobalStats: () => ipcRenderer.invoke("db:global-stats"),
+  getGlobalStats: (patchVersion?: string) => ipcRenderer.invoke("db:global-stats", patchVersion),
 
   getSummonerPuuid: () => ipcRenderer.invoke("db:summoner-puuid"),
 

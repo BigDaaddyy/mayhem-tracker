@@ -174,6 +174,59 @@ function createTables() {
   } catch {
     // Column already exists
   }
+
+  // Migration: add game_version column for patch-based analytics
+  try {
+    db.exec("ALTER TABLE games ADD COLUMN game_version TEXT");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_games_version ON games(game_version)");
+  } catch {
+    // Column already exists
+  }
+  backfillGameVersions();
+}
+
+export function extractPatchVersion(gameVersion?: string | null): string | null {
+  if (!gameVersion || typeof gameVersion !== "string") return null;
+  const match = gameVersion.match(/^(\d+)\.(\d+)/);
+  return match ? `${match[1]}.${match[2]}` : null;
+}
+
+function backfillGameVersions(): void {
+  const rows = db
+    .prepare(
+      "SELECT game_id, raw_json FROM games WHERE (game_version IS NULL OR game_version = '') AND raw_json IS NOT NULL",
+    )
+    .all() as { game_id: number; raw_json: string }[];
+  if (rows.length === 0) return;
+
+  const updateStmt = db.prepare("UPDATE games SET game_version = ? WHERE game_id = ?");
+  for (const row of rows) {
+    try {
+      const raw = JSON.parse(row.raw_json);
+      const patch = extractPatchVersion(raw.gameVersion);
+      if (patch) updateStmt.run(patch, row.game_id);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function comparePatchVersion(a: string, b: string): number {
+  if (a === "unknown" && b === "unknown") return 0;
+  if (a === "unknown") return 1;
+  if (b === "unknown") return -1;
+  const [aMaj, aMin] = a.split(".").map(Number);
+  const [bMaj, bMin] = b.split(".").map(Number);
+  if (aMaj !== bMaj) return bMaj - aMaj;
+  return bMin - aMin;
+}
+
+function patchVersionFilter(patchVersion?: string | null): { clause: string; params: string[] } {
+  if (!patchVersion || patchVersion === "all") return { clause: "", params: [] };
+  if (patchVersion === "unknown") {
+    return { clause: " AND (g.game_version IS NULL OR g.game_version = '')", params: [] };
+  }
+  return { clause: " AND g.game_version = ?", params: [patchVersion] };
 }
 
 function detectRemake(gameDuration: number, rawJson: string | null): boolean {
@@ -241,10 +294,25 @@ function extractSelfHonor(
 
 // ---- Query functions ----
 
-export function getMatchHistory(limit: number, offset: number): { matches: any[]; total: number } {
-  const total = db.prepare("SELECT COUNT(*) as count FROM games").get() as any;
+export function getMatchHistory(
+  limit: number,
+  offset: number,
+  patchVersion?: string | null,
+): { matches: any[]; total: number } {
+  const { clause, params } = patchVersionFilter(patchVersion);
+  const total = db
+    .prepare(
+      `
+    SELECT COUNT(*) as count
+    FROM games g
+    JOIN player_stats ps ON g.game_id = ps.game_id
+    WHERE 1=1${clause}
+  `,
+    )
+    .get(...params) as any;
   const rows = db
-    .prepare(`
+    .prepare(
+      `
     SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.puuid, g.raw_json,
            ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
            ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
@@ -253,10 +321,12 @@ export function getMatchHistory(limit: number, offset: number): { matches: any[]
            (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids
     FROM games g
     JOIN player_stats ps ON g.game_id = ps.game_id
+    WHERE 1=1${clause}
     ORDER BY g.game_creation DESC
     LIMIT ? OFFSET ?
-  `)
-    .all(limit, offset);
+  `,
+    )
+    .all(...params, limit, offset);
   const matches = rows.map((row: any) => {
     const maxStats = extractGameMaxStats(row.raw_json);
     const { raw_json, ...match } = row;
@@ -284,9 +354,11 @@ export function getMatchDetail(gameId: number): any {
   };
 }
 
-export function getChampionStatsAll(): any[] {
+export function getChampionStatsAll(patchVersion?: string | null): any[] {
+  const { clause, params } = patchVersionFilter(patchVersion);
   return db
-    .prepare(`
+    .prepare(
+      `
     SELECT
       ps.champion_id,
       COUNT(*) as games,
@@ -305,43 +377,71 @@ export function getChampionStatsAll(): any[] {
       SUM(ps.penta_kills) as penta_kills
     FROM player_stats ps
     JOIN games g ON ps.game_id = g.game_id
-    WHERE g.is_remake = 0
+    WHERE g.is_remake = 0${clause}
     GROUP BY ps.champion_id
     ORDER BY games DESC
-  `)
-    .all();
+  `,
+    )
+    .all(...params);
 }
 
-export function getAugmentStatsAll(championId?: number): any[] {
+export function getGamePatchVersions(): { version: string; games: number }[] {
+  const rows = db
+    .prepare(
+      `
+    SELECT
+      CASE
+        WHEN g.game_version IS NULL OR g.game_version = '' THEN 'unknown'
+        ELSE g.game_version
+      END as version,
+      COUNT(*) as games
+    FROM games g
+    WHERE g.is_remake = 0
+    GROUP BY version
+  `,
+    )
+    .all() as { version: string; games: number }[];
+
+  return rows.sort((a, b) => comparePatchVersion(a.version, b.version));
+}
+
+export function getAugmentStatsAll(championId?: number, patchVersion?: string | null): any[] {
+  const { clause, params } = patchVersionFilter(patchVersion);
   if (championId !== undefined) {
     return db
-      .prepare(`
+      .prepare(
+        `
       SELECT ga.augment_id, COUNT(*) as picks, SUM(ps.win) as wins
       FROM game_augments ga
       JOIN player_stats ps ON ga.game_id = ps.game_id
       JOIN games g ON ga.game_id = g.game_id
-      WHERE ps.champion_id = ? AND g.is_remake = 0
+      WHERE ps.champion_id = ? AND g.is_remake = 0${clause}
       GROUP BY ga.augment_id
       ORDER BY picks DESC
-    `)
-      .all(championId);
+    `,
+      )
+      .all(championId, ...params);
   }
   return db
-    .prepare(`
+    .prepare(
+      `
     SELECT ga.augment_id, COUNT(*) as picks, SUM(ps.win) as wins
     FROM game_augments ga
     JOIN player_stats ps ON ga.game_id = ps.game_id
     JOIN games g ON ga.game_id = g.game_id
-    WHERE g.is_remake = 0
+    WHERE g.is_remake = 0${clause}
     GROUP BY ga.augment_id
     ORDER BY picks DESC
-  `)
-    .all();
+  `,
+    )
+    .all(...params);
 }
 
-export function getDashboardData(): any {
+export function getDashboardData(patchVersion?: string | null): any {
+  const { clause, params } = patchVersionFilter(patchVersion);
   const totals = db
-    .prepare(`
+    .prepare(
+      `
     SELECT COUNT(*) as totalGames,
            SUM(ps.win) as wins,
            SUM(ps.kills) as totalKills,
@@ -353,23 +453,27 @@ export function getDashboardData(): any {
            SUM(ps.penta_kills) as pentas
     FROM player_stats ps
     JOIN games g ON ps.game_id = g.game_id
-    WHERE g.is_remake = 0
-  `)
-    .get() as any;
+    WHERE g.is_remake = 0${clause}
+  `,
+    )
+    .get(...params) as any;
 
   const recentForm = db
-    .prepare(`
+    .prepare(
+      `
     SELECT ps.win, g.game_id
     FROM games g
     JOIN player_stats ps ON g.game_id = ps.game_id
-    WHERE g.is_remake = 0
+    WHERE g.is_remake = 0${clause}
     ORDER BY g.game_creation DESC
     LIMIT 10
-  `)
-    .all();
+  `,
+    )
+    .all(...params);
 
   const topChampions = db
-    .prepare(`
+    .prepare(
+      `
     SELECT
       ps.champion_id,
       COUNT(*) as games,
@@ -379,25 +483,28 @@ export function getDashboardData(): any {
       ROUND(AVG(ps.assists), 1) as avg_assists
     FROM player_stats ps
     JOIN games g ON ps.game_id = g.game_id
-    WHERE g.is_remake = 0
+    WHERE g.is_remake = 0${clause}
     GROUP BY ps.champion_id
     ORDER BY games DESC
     LIMIT 5
-  `)
-    .all();
+  `,
+    )
+    .all(...params);
 
   const topAugments = db
-    .prepare(`
+    .prepare(
+      `
     SELECT ga.augment_id, COUNT(*) as picks, SUM(ps.win) as wins
     FROM game_augments ga
     JOIN player_stats ps ON ga.game_id = ps.game_id
     JOIN games g ON ga.game_id = g.game_id
-    WHERE g.is_remake = 0
+    WHERE g.is_remake = 0${clause}
     GROUP BY ga.augment_id
     ORDER BY picks DESC
     LIMIT 5
-  `)
-    .all();
+  `,
+    )
+    .all(...params);
 
   return {
     totalGames: totals.totalGames ?? 0,
@@ -417,35 +524,40 @@ export function getDashboardData(): any {
   };
 }
 
-export function getAugmentStatsWithChampions(): {
+export function getAugmentStatsWithChampions(patchVersion?: string | null): {
   augment_id: number;
   picks: number;
   wins: number;
   champions: { champion_id: number; picks: number; wins: number }[];
 }[] {
+  const { clause, params } = patchVersionFilter(patchVersion);
   const augments = db
-    .prepare(`
+    .prepare(
+      `
     SELECT ga.augment_id, COUNT(*) as picks, SUM(ps.win) as wins
     FROM game_augments ga
     JOIN player_stats ps ON ga.game_id = ps.game_id
     JOIN games g ON ga.game_id = g.game_id
-    WHERE g.is_remake = 0
+    WHERE g.is_remake = 0${clause}
     GROUP BY ga.augment_id
     ORDER BY picks DESC
-  `)
-    .all() as { augment_id: number; picks: number; wins: number }[];
+  `,
+    )
+    .all(...params) as { augment_id: number; picks: number; wins: number }[];
 
   const champBreakdown = db
-    .prepare(`
+    .prepare(
+      `
     SELECT ga.augment_id, ps.champion_id, COUNT(*) as picks, SUM(ps.win) as wins
     FROM game_augments ga
     JOIN player_stats ps ON ga.game_id = ps.game_id
     JOIN games g ON ga.game_id = g.game_id
-    WHERE g.is_remake = 0
+    WHERE g.is_remake = 0${clause}
     GROUP BY ga.augment_id, ps.champion_id
     ORDER BY picks DESC
-  `)
-    .all() as { augment_id: number; champion_id: number; picks: number; wins: number }[];
+  `,
+    )
+    .all(...params) as { augment_id: number; champion_id: number; picks: number; wins: number }[];
 
   const champMap = new Map<number, { champion_id: number; picks: number; wins: number }[]>();
   for (const row of champBreakdown) {
@@ -465,12 +577,22 @@ export function getChampionMatchHistory(
   championId: number,
   limit: number,
   offset: number,
+  patchVersion?: string | null,
 ): { matches: any[]; total: number } {
+  const { clause, params } = patchVersionFilter(patchVersion);
   const total = db
-    .prepare("SELECT COUNT(*) as count FROM player_stats WHERE champion_id = ?")
-    .get(championId) as any;
+    .prepare(
+      `
+    SELECT COUNT(*) as count
+    FROM games g
+    JOIN player_stats ps ON g.game_id = ps.game_id
+    WHERE ps.champion_id = ?${clause}
+  `,
+    )
+    .get(championId, ...params) as any;
   const rows = db
-    .prepare(`
+    .prepare(
+      `
     SELECT g.game_id, g.game_creation, g.game_duration, g.is_remake, g.puuid, g.raw_json,
            ps.champion_id, ps.win, ps.kills, ps.deaths, ps.assists,
            ps.double_kills, ps.triple_kills, ps.quadra_kills, ps.penta_kills,
@@ -479,11 +601,12 @@ export function getChampionMatchHistory(
            (SELECT GROUP_CONCAT(ga.augment_id) FROM game_augments ga WHERE ga.game_id = g.game_id ORDER BY ga.slot) as augment_ids
     FROM games g
     JOIN player_stats ps ON g.game_id = ps.game_id
-    WHERE ps.champion_id = ?
+    WHERE ps.champion_id = ?${clause}
     ORDER BY g.game_creation DESC
     LIMIT ? OFFSET ?
-  `)
-    .all(championId, limit, offset);
+  `,
+    )
+    .all(championId, ...params, limit, offset);
   const matches = rows.map((row: any) => {
     const maxStats = extractGameMaxStats(row.raw_json);
     const { raw_json, ...match } = row;
@@ -521,10 +644,11 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
   const s = participant.stats || participant;
 
   const isRemake = detectRemake(gameData.gameDuration, JSON.stringify(gameData)) ? 1 : 0;
+  const gameVersion = extractPatchVersion(gameData.gameVersion);
 
   const insertGameStmt = db.prepare(`
-    INSERT OR IGNORE INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, raw_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, raw_json, game_version)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertStatsStmt = db.prepare(`
@@ -550,6 +674,7 @@ export function insertGameFull(gameData: any, puuid: string): boolean {
       isRemake,
       puuid,
       JSON.stringify(gameData),
+      gameVersion,
     );
 
     if (result.changes === 0) return false; // duplicate
@@ -616,15 +741,16 @@ export function getAllPuuids(): string[] {
   return rows.map((r) => r.puuid);
 }
 
-export function getTeammateStats(): any[] {
+export function getTeammateStats(patchVersion?: string | null): any[] {
   const puuids = new Set(getAllPuuids());
   if (puuids.size === 0) return [];
 
+  const { clause, params } = patchVersionFilter(patchVersion);
   const games = db
     .prepare(
-      "SELECT game_id, raw_json, game_creation FROM games WHERE raw_json IS NOT NULL AND is_remake = 0",
+      `SELECT game_id, raw_json, game_creation FROM games WHERE raw_json IS NOT NULL AND is_remake = 0${clause}`,
     )
-    .all() as any[];
+    .all(...params) as any[];
 
   const playerMap = new Map<
     string,
@@ -753,47 +879,45 @@ export function getTeammateStats(): any[] {
 
 export function getChampionItemStats(
   championId: number,
+  patchVersion?: string | null,
 ): { item_id: number; picks: number; wins: number }[] {
+  const { clause, params } = patchVersionFilter(patchVersion);
+  const rowArgs = () => [championId, ...params];
   return db
-    .prepare(`
+    .prepare(
+      `
     SELECT item_id, COUNT(*) as picks, SUM(win) as wins
     FROM (
-      SELECT ps.item0 as item_id, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item0 IS NOT NULL AND ps.item0 > 0 AND g.is_remake = 0
+      SELECT ps.item0 as item_id, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item0 IS NOT NULL AND ps.item0 > 0 AND g.is_remake = 0${clause}
       UNION ALL
-      SELECT ps.item1, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item1 IS NOT NULL AND ps.item1 > 0 AND g.is_remake = 0
+      SELECT ps.item1, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item1 IS NOT NULL AND ps.item1 > 0 AND g.is_remake = 0${clause}
       UNION ALL
-      SELECT ps.item2, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item2 IS NOT NULL AND ps.item2 > 0 AND g.is_remake = 0
+      SELECT ps.item2, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item2 IS NOT NULL AND ps.item2 > 0 AND g.is_remake = 0${clause}
       UNION ALL
-      SELECT ps.item3, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item3 IS NOT NULL AND ps.item3 > 0 AND g.is_remake = 0
+      SELECT ps.item3, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item3 IS NOT NULL AND ps.item3 > 0 AND g.is_remake = 0${clause}
       UNION ALL
-      SELECT ps.item4, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item4 IS NOT NULL AND ps.item4 > 0 AND g.is_remake = 0
+      SELECT ps.item4, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item4 IS NOT NULL AND ps.item4 > 0 AND g.is_remake = 0${clause}
       UNION ALL
-      SELECT ps.item5, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item5 IS NOT NULL AND ps.item5 > 0 AND g.is_remake = 0
+      SELECT ps.item5, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item5 IS NOT NULL AND ps.item5 > 0 AND g.is_remake = 0${clause}
       UNION ALL
-      SELECT ps.item6, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item6 IS NOT NULL AND ps.item6 > 0 AND g.is_remake = 0
+      SELECT ps.item6, ps.win FROM player_stats ps JOIN games g ON ps.game_id = g.game_id WHERE ps.champion_id = ? AND ps.item6 IS NOT NULL AND ps.item6 > 0 AND g.is_remake = 0${clause}
     )
     GROUP BY item_id
     ORDER BY picks DESC
-  `)
-    .all(
-      championId,
-      championId,
-      championId,
-      championId,
-      championId,
-      championId,
-      championId,
-    ) as any[];
+  `,
+    )
+    .all(...rowArgs(), ...rowArgs(), ...rowArgs(), ...rowArgs(), ...rowArgs(), ...rowArgs(), ...rowArgs()) as any[];
 }
 
-export function getGlobalStats(): {
+export function getGlobalStats(patchVersion?: string | null): {
   champions: { champion_id: number; games: number; wins: number }[];
   augments: { augment_id: number; picks: number; wins: number }[];
   totalParticipantSlots: number;
 } {
+  const { clause, params } = patchVersionFilter(patchVersion);
   const games = db
-    .prepare("SELECT raw_json FROM games WHERE raw_json IS NOT NULL AND is_remake = 0")
-    .all() as any[];
+    .prepare(`SELECT raw_json FROM games WHERE raw_json IS NOT NULL AND is_remake = 0${clause}`)
+    .all(...params) as any[];
 
   const championMap = new Map<number, { games: number; wins: number }>();
   const augmentMap = new Map<number, { picks: number; wins: number }>();

@@ -138,6 +138,9 @@ export const messages = {
       minPicks: "最少场次",
       augmentCount: "{count} 个强化",
       noAugments: "暂无符合条件的强化数据",
+      patch: "游戏版本",
+      allPatches: "全部版本",
+      unknownPatch: "未知版本",
     },
 
     friends: {
@@ -326,6 +329,9 @@ export const messages = {
       minPicks: "Min picks",
       augmentCount: "{count} augments",
       noAugments: "No augments match the current filters",
+      patch: "Patch",
+      allPatches: "All patches",
+      unknownPatch: "Unknown",
     },
 
     friends: {

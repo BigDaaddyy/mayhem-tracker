@@ -79,6 +79,11 @@ export interface MatchDetail {
   raw: any;
 }
 
+export interface PatchVersionStats {
+  version: string;
+  games: number;
+}
+
 export interface ChampionStats {
   champion_id: number;
   games: number;
@@ -198,20 +203,23 @@ export interface ElectronAPI {
   getMatchHistory: (
     limit: number,
     offset: number,
+    patchVersion?: string,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
   getMatchDetail: (gameId: number) => Promise<MatchDetail>;
-  getChampionStats: () => Promise<ChampionStats[]>;
-  getAugmentStats: (championId?: number) => Promise<AugmentStats[]>;
-  getAugmentStatsDetailed: () => Promise<AugmentStatsDetailed[]>;
-  getDashboard: () => Promise<DashboardData>;
+  getChampionStats: (patchVersion?: string) => Promise<ChampionStats[]>;
+  getAugmentStats: (championId?: number, patchVersion?: string) => Promise<AugmentStats[]>;
+  getGamePatchVersions: () => Promise<PatchVersionStats[]>;
+  getAugmentStatsDetailed: (patchVersion?: string) => Promise<AugmentStatsDetailed[]>;
+  getDashboard: (patchVersion?: string) => Promise<DashboardData>;
   getChampionMatchHistory: (
     championId: number,
     limit: number,
     offset: number,
+    patchVersion?: string,
   ) => Promise<{ matches: MatchListItem[]; total: number }>;
-  getChampionItemStats: (championId: number) => Promise<ItemStats[]>;
-  getTeammateStats: () => Promise<TeammateStats[]>;
-  getGlobalStats: () => Promise<GlobalStats>;
+  getChampionItemStats: (championId: number, patchVersion?: string) => Promise<ItemStats[]>;
+  getTeammateStats: (patchVersion?: string) => Promise<TeammateStats[]>;
+  getGlobalStats: (patchVersion?: string) => Promise<GlobalStats>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number }>;

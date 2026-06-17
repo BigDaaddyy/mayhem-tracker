@@ -11,6 +11,7 @@ import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import WinRateBar from "../components/WinRateBar";
 import { useI18n } from "../hooks/useI18n";
+import { usePatchVersion } from "../hooks/usePatchVersion";
 
 type Tab = "champions" | "augments";
 type ChampSortKey = "games" | "winRate" | "pickRate" | "name";
@@ -61,9 +62,12 @@ function SearchInput({
 
 export default function GlobalStats() {
   const { t } = useI18n();
+  const { patchFilter, ready } = usePatchVersion();
   const champData = useChampionData();
   const augmentData = useAugmentData();
-  const { data, loading, refetch } = useIpc<GlobalStats>(() => window.api.getGlobalStats());
+  const { data, loading, refetch } = useIpc<GlobalStats>(() =>
+    window.api.getGlobalStats(patchFilter),
+  [patchFilter]);
   const [tab, setTab] = useState<Tab>("champions");
 
   // Champion tab state
@@ -217,7 +221,7 @@ export default function GlobalStats() {
     return filtered;
   }, [data, augSearch, augSortKey, augSortDir, augmentData, rarityFilter, t]);
 
-  if (loading || !data) {
+  if (loading || !ready || !data) {
     return <div className="text-lol-text text-center mt-20">{t("loading")}</div>;
   }
 

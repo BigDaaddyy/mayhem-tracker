@@ -11,6 +11,7 @@ import AugmentIcon from "../components/AugmentIcon";
 import ChampionIcon from "../components/ChampionIcon";
 import WinRateBar from "../components/WinRateBar";
 import { useI18n } from "../hooks/useI18n";
+import { usePatchVersion } from "../hooks/usePatchVersion";
 
 type SortKey = "picks" | "winRate" | "name";
 type SortDir = "asc" | "desc";
@@ -18,10 +19,12 @@ type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
 
 export default function Augments() {
   const { t } = useI18n();
+  const { patchFilter, ready } = usePatchVersion();
   const champData = useChampionData();
   const augmentData = useAugmentData();
-  const { data, loading, refetch } = useIpc<AugmentStatsDetailed[]>(() =>
-    window.api.getAugmentStatsDetailed(),
+  const { data, loading, refetch } = useIpc<AugmentStatsDetailed[]>(
+    () => window.api.getAugmentStatsDetailed(patchFilter),
+    [patchFilter],
   );
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("picks");
@@ -128,7 +131,7 @@ export default function Augments() {
     return filtered;
   }, [data, search, sortKey, sortDir, augmentData, rarityFilter, t]);
 
-  if (loading || !data) {
+  if (loading || !ready || !data) {
     return <div className="text-lol-text text-center mt-20">{t("loading")}</div>;
   }
 

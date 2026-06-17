@@ -6,14 +6,19 @@ import ChampionIcon from "../components/ChampionIcon";
 import WinRateBar from "../components/WinRateBar";
 import { kdaColor } from "../lib/format";
 import { useI18n } from "../hooks/useI18n";
+import { usePatchVersion } from "../hooks/usePatchVersion";
 
 type SortKey = "games" | "winRate" | "kda" | "lastPlayed";
 type SortDir = "asc" | "desc";
 
 export default function Friends() {
   const { t, formatTimeAgo, kdaRatio } = useI18n();
+  const { patchFilter, ready } = usePatchVersion();
   const champData = useChampionData();
-  const { data, loading, refetch } = useIpc<TeammateStats[]>(() => window.api.getTeammateStats());
+  const { data, loading, refetch } = useIpc<TeammateStats[]>(
+    () => window.api.getTeammateStats(patchFilter),
+    [patchFilter],
+  );
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("games");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -61,7 +66,7 @@ export default function Friends() {
     return filtered;
   }, [data, search, sortKey, sortDir]);
 
-  if (loading || !data) {
+  if (loading || !ready || !data) {
     return <div className="text-lol-text text-center mt-20">{t("loading")}</div>;
   }
 

@@ -12,13 +12,16 @@ import HonorBadge from "../components/HonorBadge";
 import StatCard from "../components/StatCard";
 import { formatDuration, formatKDA } from "../lib/format";
 import { useI18n } from "../hooks/useI18n";
+import { usePatchVersion } from "../hooks/usePatchVersion";
 
 export default function MatchHistory() {
   const { t } = useI18n();
+  const { patchFilter, ready } = usePatchVersion();
   const { matches, total, loading, hasMore, loadMore } = useMatches();
   const champData = useChampionData();
-  const { data: dashboard, refetch: refetchDashboard } = useIpc<DashboardData>(() =>
-    window.api.getDashboard(),
+  const { data: dashboard, refetch: refetchDashboard } = useIpc<DashboardData>(
+    () => window.api.getDashboard(patchFilter),
+    [patchFilter],
   );
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<MatchDetail | null>(null);
