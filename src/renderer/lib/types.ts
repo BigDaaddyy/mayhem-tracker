@@ -84,6 +84,12 @@ export interface PatchVersionStats {
   games: number;
 }
 
+export interface AnalyticsChampion {
+  champion_id: number;
+  games: number;
+  wins: number;
+}
+
 export interface ChampionStats {
   champion_id: number;
   games: number;
@@ -220,6 +226,11 @@ export interface ElectronAPI {
   getChampionItemStats: (championId: number, patchVersion?: string) => Promise<ItemStats[]>;
   getTeammateStats: (patchVersion?: string) => Promise<TeammateStats[]>;
   getGlobalStats: (patchVersion?: string) => Promise<GlobalStats>;
+  getAllPlayersChampionStats: (patchVersion?: string) => Promise<AnalyticsChampion[]>;
+  getAllPlayersChampionAugmentStats: (
+    championId: number,
+    patchVersion?: string,
+  ) => Promise<AugmentStats[]>;
   getSummonerPuuid: () => Promise<string | null>;
   getAllSummonerPuuids: () => Promise<string[]>;
   refreshGames: () => Promise<{ newGames: number; totalGames: number }>;

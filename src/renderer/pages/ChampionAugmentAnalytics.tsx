@@ -6,7 +6,7 @@ import {
   useAugmentData,
   getAugmentName,
 } from "../hooks/useChampions";
-import type { ChampionStats, AugmentStats } from "../lib/types";
+import type { AnalyticsChampion, AugmentStats, ChampionStats } from "../lib/types";
 import ChampionIcon from "../components/ChampionIcon";
 import AugmentIcon from "../components/AugmentIcon";
 import WinRateBar from "../components/WinRateBar";
@@ -16,6 +16,7 @@ import { usePatchVersion } from "../hooks/usePatchVersion";
 type SortKey = "picks" | "winRate" | "name" | "delta";
 type SortDir = "asc" | "desc";
 type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
+type DataScope = "self" | "all";
 
 const RARITY_LABEL: Record<string, string> = {
   kSilver: "silver",
@@ -32,10 +33,36 @@ export default function ChampionAugmentAnalytics() {
   const { patchFilter, ready } = usePatchVersion();
   const champData = useChampionData();
   const augmentData = useAugmentData();
-  const { data: champions, loading, refetch } = useIpc<ChampionStats[]>(
+  const [dataScope, setDataScope] = useState<DataScope>("self");
+
+  const { data: selfChampions, loading: selfLoading, refetch: refetchSelf } = useIpc<ChampionStats[]>(
     () => window.api.getChampionStats(patchFilter),
     [patchFilter],
   );
+  const {
+    data: allChampions,
+    loading: allLoading,
+    refetch: refetchAll,
+  } = useIpc<AnalyticsChampion[]>(
+    () => window.api.getAllPlayersChampionStats(patchFilter),
+    [patchFilter],
+  );
+
+  const champions: AnalyticsChampion[] | null =
+    dataScope === "self"
+      ? selfChampions?.map((c) => ({
+          champion_id: c.champion_id,
+          games: c.games,
+          wins: c.wins,
+        })) ?? null
+      : allChampions;
+
+  const loading = dataScope === "self" ? selfLoading : allLoading;
+
+  const refetch = () => {
+    refetchSelf();
+    refetchAll();
+  };
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [augStats, setAugStats] = useState<AugmentStats[] | null>(null);
@@ -50,31 +77,36 @@ export default function ChampionAugmentAnalytics() {
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
     return unsub;
-  }, [refetch]);
+  }, [refetchSelf, refetchAll]);
 
   useEffect(() => {
     if (!champions || champions.length === 0) return;
     if (selectedId === null || !champions.some((c) => c.champion_id === selectedId)) {
       setSelectedId(champions[0].champion_id);
     }
-  }, [champions, selectedId]);
+  }, [champions, selectedId, dataScope]);
 
   useEffect(() => {
     if (selectedId === null || !ready) return;
     setAugLoading(true);
-    window.api
-      .getAugmentStats(selectedId, patchFilter)
-      .then(setAugStats)
-      .finally(() => setAugLoading(false));
-  }, [selectedId, patchFilter, ready]);
+    const fetcher =
+      dataScope === "self"
+        ? window.api.getAugmentStats(selectedId, patchFilter)
+        : window.api.getAllPlayersChampionAugmentStats(selectedId, patchFilter);
+    fetcher.then(setAugStats).finally(() => setAugLoading(false));
+  }, [selectedId, patchFilter, ready, dataScope]);
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => {
       if (selectedId === null || !ready) return;
-      window.api.getAugmentStats(selectedId, patchFilter).then(setAugStats);
+      const fetcher =
+        dataScope === "self"
+          ? window.api.getAugmentStats(selectedId, patchFilter)
+          : window.api.getAllPlayersChampionAugmentStats(selectedId, patchFilter);
+      fetcher.then(setAugStats);
     });
     return unsub;
-  }, [selectedId, patchFilter, ready]);
+  }, [selectedId, patchFilter, ready, dataScope]);
 
   const filteredChampions = useMemo(() => {
     if (!champions) return [];
@@ -188,7 +220,9 @@ export default function ChampionAugmentAnalytics() {
 
   if (champions.length === 0) {
     return (
-      <div className="text-lol-text text-center mt-20 max-w-md mx-auto">{t("matchHistory.empty")}</div>
+      <div className="text-lol-text text-center mt-20 max-w-md mx-auto">
+        {dataScope === "self" ? t("matchHistory.empty") : t("analytics.noAllPlayersData")}
+      </div>
     );
   }
 
@@ -264,6 +298,27 @@ export default function ChampionAugmentAnalytics() {
 
       {/* Augment analytics */}
       <div className="flex-1 min-w-0 flex flex-col gap-3 overflow-hidden">
+        <div className="flex items-center gap-2 shrink-0">
+          {(
+            [
+              { key: "self" as const, label: t("analytics.scopeSelf") },
+              { key: "all" as const, label: t("analytics.scopeAll") },
+            ] as const
+          ).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setDataScope(key)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                dataScope === key
+                  ? "bg-lol-gold/20 text-lol-gold border-lol-gold/50"
+                  : "text-lol-text border-lol-border hover:border-lol-border/80 bg-lol-card"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {selectedChampion && (
           <>
             <div className="flex items-center gap-4 shrink-0">
@@ -277,11 +332,17 @@ export default function ChampionAugmentAnalytics() {
                   )}
                 </h1>
                 <p className="text-sm text-lol-text">
-                  {t("analytics.summary", {
-                    games: selectedChampion.games,
-                    winRate: baselineWinRate.toFixed(1),
-                    augments: augStats?.length ?? 0,
-                  })}
+                  {dataScope === "self"
+                    ? t("analytics.summary", {
+                        games: selectedChampion.games,
+                        winRate: baselineWinRate.toFixed(1),
+                        augments: augStats?.length ?? 0,
+                      })
+                    : t("analytics.summaryAll", {
+                        games: selectedChampion.games,
+                        winRate: baselineWinRate.toFixed(1),
+                        augments: augStats?.length ?? 0,
+                      })}
                 </p>
               </div>
               <div className="ml-auto w-40">

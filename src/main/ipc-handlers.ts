@@ -172,6 +172,28 @@ export function registerIpcHandlers(win: BrowserWindow) {
 
 
 
+  ipcMain.handle("db:all-players-champion-stats", (_event, patchVersion?: string) => {
+
+    return db.getAllPlayersChampionStats(patchVersion);
+
+  });
+
+
+
+  ipcMain.handle(
+
+    "db:all-players-champion-augment-stats",
+
+    (_event, championId: number, patchVersion?: string) => {
+
+      return db.getAllPlayersChampionAugmentStats(championId, patchVersion);
+
+    },
+
+  );
+
+
+
   ipcMain.handle("db:all-summoner-puuids", () => {
 
     return db.getAllPuuids();

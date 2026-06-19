@@ -18,7 +18,7 @@ function getLanguage(): "zh" | "en" {
 function parseAugmentName(aug: any, fallbackId: number, locale: "zh" | "en"): string {
   const name = aug.name || aug.nameTRA || aug.simpleNameTRA;
   if (typeof name === "string" && name.trim()) return name.trim();
-  return locale === "zh" ? `强化 ${fallbackId}` : `Augment ${fallbackId}`;
+  return locale === "zh" ? `海克斯强化 ${fallbackId}` : `Augment ${fallbackId}`;
 }
 
 function parseAugmentEntry(aug: any, id: number, locale: "zh" | "en") {

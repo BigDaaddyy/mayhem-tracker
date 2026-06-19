@@ -973,6 +973,53 @@ export function getGlobalStats(patchVersion?: string | null): {
   };
 }
 
+export function getAllPlayersChampionStats(
+  patchVersion?: string | null,
+): { champion_id: number; games: number; wins: number }[] {
+  return getGlobalStats(patchVersion).champions;
+}
+
+export function getAllPlayersChampionAugmentStats(
+  championId: number,
+  patchVersion?: string | null,
+): { augment_id: number; picks: number; wins: number }[] {
+  const { clause, params } = patchVersionFilter(patchVersion);
+  const games = db
+    .prepare(`SELECT raw_json FROM games WHERE raw_json IS NOT NULL AND is_remake = 0${clause}`)
+    .all(...params) as { raw_json: string }[];
+
+  const augmentMap = new Map<number, { picks: number; wins: number }>();
+
+  for (const game of games) {
+    let raw: any;
+    try {
+      raw = JSON.parse(game.raw_json);
+    } catch {
+      continue;
+    }
+
+    for (const p of raw.participants || []) {
+      const s = p.stats || p;
+      const champId = p.championId ?? s.championId ?? 0;
+      if (champId !== championId) continue;
+
+      const win = !!s.win;
+      for (let i = 1; i <= 4; i++) {
+        const augId = s[`playerAugment${i}`];
+        if (!augId || augId <= 0) continue;
+        if (!augmentMap.has(augId)) augmentMap.set(augId, { picks: 0, wins: 0 });
+        const aug = augmentMap.get(augId)!;
+        aug.picks++;
+        if (win) aug.wins++;
+      }
+    }
+  }
+
+  return Array.from(augmentMap.entries())
+    .map(([augment_id, stats]) => ({ augment_id, ...stats }))
+    .sort((a, b) => b.picks - a.picks);
+}
+
 export function getDatabase(): Database.Database {
   return db;
 }
