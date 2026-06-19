@@ -18,6 +18,7 @@
 - 本地 SQLite 数据库，数据保存在本机
 - 启动时自动刷新游戏资源（英雄名、强化名、装备图标版本）
 - 支持简体中文 / English 界面切换
+- **设置页字体大小**（80%–130% 可调）
 
 ### 下载
 
@@ -75,6 +76,7 @@ Desktop app for tracking **ARAM Mayhem** (queueId 2400) match history in League 
 - Local SQLite database
 - Game data refresh on startup (champion/augment names, item icon patch)
 - Simplified Chinese / English UI
+- **Adjustable font size** in Settings (80%–130%)
 
 ### Download
 
