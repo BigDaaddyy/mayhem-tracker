@@ -40,6 +40,8 @@ export const messages = {
       languageDesc: "切换后英雄名称将同步更新为对应语言",
       zh: "简体中文",
       en: "English",
+      fontSize: "字体大小",
+      fontSizeDesc: "调整界面文字显示大小",
       exitBehavior: "退出行为",
       minimizeToTray: "关闭时最小化到托盘",
       minimizeToTrayDesc:
@@ -235,6 +237,8 @@ export const messages = {
       languageDesc: "Champion names update to match the selected language",
       zh: "简体中文",
       en: "English",
+      fontSize: "Font Size",
+      fontSizeDesc: "Adjust text size across the app",
       exitBehavior: "Exit Behavior",
       minimizeToTray: "Minimize to tray on close",
       minimizeToTrayDesc:

@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { useFontSize } from "../hooks/useFontSize";
 import { useI18n } from "../hooks/useI18n";
+import { FONT_SIZE_OPTIONS, type FontSizePercent } from "../lib/fontSize";
 import type { Locale } from "../lib/i18n";
 
 export default function Settings() {
   const { t, locale, setLocale } = useI18n();
+  const { fontSize, setFontSize } = useFontSize();
   const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [loading, setLoading] = useState(true);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -130,6 +133,24 @@ export default function Settings() {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="bg-lol-card rounded-xl border border-lol-border p-5">
+        <h2 className="text-sm font-semibold text-lol-text-bright mb-4">{t("settings.fontSize")}</h2>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-lol-text">{t("settings.fontSizeDesc")}</p>
+          <select
+            value={fontSize}
+            onChange={(e) => void setFontSize(Number(e.target.value) as FontSizePercent)}
+            className="bg-lol-dark border border-lol-border rounded-md px-2 py-1 text-xs text-lol-text-bright focus:outline-none focus:border-lol-gold/50 min-w-20"
+          >
+            {FONT_SIZE_OPTIONS.map((percent) => (
+              <option key={percent} value={percent}>
+                {percent}%
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
